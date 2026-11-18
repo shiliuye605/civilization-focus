@@ -43,12 +43,42 @@ export function createUI() {
     codexTitle: $('codex-title'),
     codexUse: $('codex-use'),
     codexText: $('codex-text'),
+    codexSlice: $('codex-slice'),
+    bgCanvas: $('bg-canvas'),
+    soundBtn: $('sound-btn'),
+    codexPanelBtn: $('codex-panel-btn'),
+    soundEnabled: $('sound-enabled'),
+    soundList: $('sound-list'),
+    soundVolume: $('sound-volume'),
+    soundVolumeValue: $('sound-volume-value'),
+    soundMute: $('sound-mute'),
+    soundStatus: $('sound-status'),
+    soundRetry: $('sound-retry'),
+    codexPanelDialog: $('codex-panel-dialog'),
+    codexTabs: $('codex-tabs'),
+    codexCards: $('codex-cards'),
+    unlockDialog: $('unlock-dialog'),
+    unlockTitle: $('unlock-title'),
+    unlockTagline: $('unlock-tagline'),
+    unlockRows: $('unlock-rows'),
     srStatus: $('sr-status')
   };
 
-  let handlers = { onAction: () => {}, onSettingsOpen: () => {}, onSettingsSubmit: () => {}, onHotspot: () => {}, onNode: () => {} };
+  let handlers = {
+    onAction: () => {},
+    onSettingsOpen: () => {},
+    onSettingsSubmit: () => {},
+    onHotspot: () => {},
+    onNode: () => {},
+    onSoundEnabled: () => {},
+    onSoundSelect: () => {},
+    onSoundVolume: () => {}
+  };
   let lastConfirmTrigger = null;
   let lastHotspotTrigger = null;
+  let lastPanelTrigger = null;
+  let lastUnlockTrigger = null;
+  let panelVM = null;
 
   document.addEventListener('click', (event) => {
     const actionEl = event.target.closest('[data-action]');
@@ -79,7 +109,7 @@ export function createUI() {
   els.focusInput.addEventListener('input', () => clearFieldError('focus'));
   els.breakInput.addEventListener('input', () => clearFieldError('break'));
 
-  for (const dialog of [els.settingsDialog, els.confirmDialog, els.codexDialog]) {
+  for (const dialog of [els.settingsDialog, els.confirmDialog, els.codexDialog, els.codexPanelDialog, els.unlockDialog]) {
     dialog.addEventListener('click', (event) => {
       if (event.target === dialog) dialog.close();
     });
@@ -87,6 +117,14 @@ export function createUI() {
   els.settingsDialog.addEventListener('close', () => els.settingsBtn.focus({ preventScroll: true }));
   els.confirmDialog.addEventListener('close', () => lastConfirmTrigger?.focus({ preventScroll: true }));
   els.codexDialog.addEventListener('close', () => lastHotspotTrigger?.focus({ preventScroll: true }));
+  els.codexPanelDialog.addEventListener('close', () => lastPanelTrigger?.focus({ preventScroll: true }));
+  els.unlockDialog.addEventListener('close', () => lastUnlockTrigger?.focus({ preventScroll: true }));
+
+  els.soundEnabled.addEventListener('change', () => handlers.onSoundEnabled(els.soundEnabled.checked));
+  els.soundVolume.addEventListener('input', () => handlers.onSoundVolume(Number(els.soundVolume.value) / 100));
+  els.soundList.addEventListener('change', (event) => {
+    if (event.target.name === 'ambience') handlers.onSoundSelect(event.target.value);
+  });
 
   function bind(next) {
     handlers = { ...handlers, ...next };
@@ -179,16 +217,154 @@ export function createUI() {
     });
   }
 
-  function openCodex(item) {
+  function openCodex(item, sliceUrl) {
     els.codexTag.textContent = item.tag;
     els.codexTitle.textContent = item.title;
     els.codexUse.textContent = `用途 · ${item.use}`;
     els.codexText.textContent = item.text;
+    if (sliceUrl) {
+      els.codexSlice.src = sliceUrl;
+      els.codexSlice.hidden = false;
+    } else {
+      els.codexSlice.hidden = true;
+      els.codexSlice.removeAttribute('src');
+    }
     if (!els.codexDialog.open) els.codexDialog.showModal();
   }
 
   function closeCodex() {
     if (els.codexDialog.open) els.codexDialog.close();
+  }
+
+  function renderCodexCards(eraId) {
+    const era = panelVM.eras.find((e) => e.id === eraId);
+    els.codexCards.innerHTML = '';
+    if (!era) return;
+    era.items.forEach((item) => {
+      const card = document.createElement('article');
+      card.className = 'codex-card';
+      const img = document.createElement('img');
+      img.className = 'codex-slice';
+      img.src = item.slice;
+      img.alt = `${item.title} 场景切片`;
+      const h = document.createElement('h3');
+      h.textContent = item.title;
+      const use = document.createElement('p');
+      use.className = 'codex-use';
+      use.textContent = `用途 · ${item.use}`;
+      const text = document.createElement('p');
+      text.className = 'codex-text';
+      text.textContent = item.text;
+      card.append(img, h, use, text);
+      els.codexCards.appendChild(card);
+    });
+    [...els.codexTabs.children].forEach((tab) => {
+      const on = tab.dataset.era === eraId;
+      tab.setAttribute('aria-selected', String(on));
+      tab.tabIndex = on ? 0 : -1;
+    });
+  }
+
+  function openCodexPanel(vm) {
+    panelVM = vm;
+    lastPanelTrigger = document.activeElement;
+    els.codexTabs.innerHTML = '';
+    vm.eras.forEach((era) => {
+      const tab = document.createElement('button');
+      tab.type = 'button';
+      tab.className = 'codex-tab';
+      tab.role = 'tab';
+      tab.dataset.era = era.id;
+      tab.id = `codex-tab-${era.id}`;
+      tab.textContent = era.name;
+      tab.addEventListener('click', () => renderCodexCards(era.id));
+      els.codexTabs.appendChild(tab);
+    });
+    renderCodexCards(vm.activeEra);
+    if (!els.codexPanelDialog.open) els.codexPanelDialog.showModal();
+  }
+
+  function closeCodexPanel() {
+    if (els.codexPanelDialog.open) els.codexPanelDialog.close();
+  }
+
+  function openUnlock(vm) {
+    lastUnlockTrigger = document.activeElement;
+    els.unlockTitle.textContent = vm.name;
+    els.unlockTagline.textContent = vm.tagline;
+    els.unlockRows.innerHTML = '';
+    vm.rows.forEach((row) => {
+      const li = document.createElement('li');
+      li.textContent = row;
+      els.unlockRows.appendChild(li);
+    });
+    if (!els.unlockDialog.open) els.unlockDialog.showModal();
+  }
+
+  function closeUnlock() {
+    if (els.unlockDialog.open) els.unlockDialog.close();
+  }
+
+  function renderSoundList(vm) {
+    els.soundList.innerHTML = '';
+    vm.list.forEach((item) => {
+      const label = document.createElement('label');
+      label.className = 'sound-option';
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 'ambience';
+      input.value = item.id;
+      input.checked = item.id === vm.ambienceId;
+      const span = document.createElement('span');
+      span.textContent = item.name;
+      label.append(input, span);
+      els.soundList.appendChild(label);
+    });
+    els.soundList.hidden = vm.list.length === 0;
+  }
+
+  const SOUND_STATUS = {
+    off: '声音已关闭。开启后才会加载与播放环境音。',
+    loading: '加载中…',
+    playing: '正在播放环境音。',
+    muted: '已静音。',
+    paused: '已保留开启偏好，点击恢复声音后继续播放。',
+    blocked: '浏览器阻止了声音，点击再次尝试。',
+    failed: '声音素材加载失败，点击重试。'
+  };
+
+  function renderSoundState(vm) {
+    els.soundEnabled.checked = vm.enabled;
+    els.soundVolume.value = String(Math.round(vm.volume * 100));
+    els.soundVolumeValue.textContent = String(Math.round(vm.volume * 100));
+    els.soundMute.setAttribute('aria-pressed', String(vm.muted));
+    els.soundMute.setAttribute('aria-label', vm.muted ? '取消静音' : '静音');
+    els.soundMute.classList.toggle('is-muted', vm.muted);
+    els.soundStatus.textContent = vm.list.length ? SOUND_STATUS[vm.state] || '' : '当前进度下暂无可用环境音。';
+    els.soundRetry.hidden = !(vm.state === 'blocked' || vm.state === 'failed');
+    els.soundEnabled.disabled = vm.list.length === 0;
+    els.soundVolume.disabled = !vm.enabled;
+    els.soundMute.disabled = !vm.enabled;
+    [...els.soundList.querySelectorAll('input')].forEach((input) => {
+      input.disabled = !vm.enabled;
+    });
+  }
+
+  function setSoundButton(state) {
+    const btn = els.soundBtn;
+    btn.classList.toggle('is-muted', state === 'muted' || state === 'off');
+    btn.classList.toggle('is-blocked', state === 'blocked' || state === 'failed');
+    const labels = {
+      off: '开启声音',
+      loading: '声音加载中',
+      playing: '静音',
+      muted: '取消静音',
+      paused: '点击恢复声音',
+      blocked: '浏览器阻止了声音，点击再次尝试',
+      failed: '声音加载失败，点击重试'
+    };
+    btn.setAttribute('aria-label', labels[state] || '声音');
+    btn.title = labels[state] || '声音';
   }
 
   function openSettings(settings) {
@@ -261,6 +437,13 @@ export function createUI() {
     renderHotspots,
     openCodex,
     closeCodex,
+    openCodexPanel,
+    closeCodexPanel,
+    openUnlock,
+    closeUnlock,
+    renderSoundList,
+    renderSoundState,
+    setSoundButton,
     openSettings,
     closeSettings,
     getSettingsInput,

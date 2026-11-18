@@ -14,6 +14,10 @@ import { createGlobe } from './globe.js';
 import { createScene } from './scene.js';
 import { createClock } from './clock.js';
 import { createUI, createFx } from './ui.js';
+import { createBackground } from './background.js';
+import { createAudio } from './audio.js';
+import { loadAudioPrefs, saveAudioPrefs } from './audio-prefs.js';
+import { AMBIENCES, unlockedAmbiences, backgroundForEra } from './rewards.js';
 
 function parseMinutes(value) {
   const text = String(value).trim();
@@ -54,12 +58,65 @@ export function boot() {
     reducedMotion: reduced,
     onActivate: openScene
   });
+  const background = createBackground(ui.els.bgCanvas, { reducedMotion: reduced });
+
+  const audioLoaded = loadAudioPrefs();
+  const audioPrefs = audioLoaded.prefs;
+  if (audioLoaded.recovered) console.warn('文明专注：声音偏好读取失败，已恢复默认声音设置。');
+  const audio = createAudio({
+    onState: (next) => {
+      ui.setSoundButton(next);
+      if (ui.els.settingsDialog.open) ui.renderSoundState(soundVM());
+      if (next === 'playing') ui.announce('环境音正在播放');
+      if (next === 'blocked') ui.announce('浏览器阻止了声音，可点击再次尝试');
+      if (next === 'failed') ui.announce('声音素材加载失败，可点击重试');
+    }
+  });
+  let pendingUnlock = null;
+
+  function availableAmbiences() {
+    return unlockedAmbiences(state.progress.completedRounds);
+  }
+
+  function reconcileAudioPrefs() {
+    const list = availableAmbiences();
+    if (!list.some((a) => a.id === audioPrefs.ambienceId)) {
+      audioPrefs.ambienceId = list.length ? list[0].id : null;
+    }
+    if (!list.length) audioPrefs.enabled = false;
+  }
+
+  function persistAudio() {
+    if (!saveAudioPrefs(audioPrefs)) console.warn('文明专注：声音偏好保存失败。');
+  }
+
+  function soundVM() {
+    return {
+      enabled: audioPrefs.enabled,
+      muted: audioPrefs.muted,
+      volume: audioPrefs.volume,
+      ambienceId: audioPrefs.ambienceId,
+      list: availableAmbiences().map((a) => ({ id: a.id, name: a.name })),
+      state: audio.getState()
+    };
+  }
+
+  function refreshSoundUI() {
+    ui.setSoundButton(audio.getState());
+    if (ui.els.settingsDialog.open) {
+      ui.renderSoundList(soundVM());
+      ui.renderSoundState(soundVM());
+    }
+  }
 
   const focusMs = () => state.settings.focusMinutes * 60000;
   const breakMs = () => state.settings.breakMinutes * 60000;
 
   function highestAvailable() {
-    return state.progress.completedRounds >= 1 ? 'tang' : 'stone';
+    const rounds = state.progress.completedRounds;
+    if (rounds >= 2 && ERAS.steam.available) return 'steam';
+    if (rounds >= 1 && ERAS.tang.available) return 'tang';
+    return 'stone';
   }
 
   function clampViewEra() {
@@ -85,6 +142,7 @@ export function boot() {
     theme = next;
     document.body.dataset.theme = theme.id;
     clock.setTheme(theme);
+    background.setEra(theme.id, state.progress.completedRounds);
     if (changed) globe.setTheme(theme);
     return changed;
   }
@@ -159,18 +217,18 @@ export function boot() {
       ];
     }
 
-    const nodes = [
-      { id: 'stone', label: '石器聚落', icon: 'stone', locked: false, current: state.progress.viewEra === 'stone', tag: null },
-      {
-        id: 'tang',
-        label: '盛唐田园',
-        icon: 'wheat',
-        locked: rounds < 1,
-        current: state.progress.viewEra === 'tang',
-        tag: rounds < 1 ? '完成 1 轮解锁' : null
-      },
-      { id: 'steam', label: '蒸汽城镇', icon: 'gear', locked: true, current: false, tag: '后续版本开放' }
-    ];
+    const nodes = ERA_ORDER.map((id, i) => {
+      const era = ERAS[id];
+      const unlocked = era.available && rounds >= era.unlockRounds;
+      return {
+        id,
+        label: era.name,
+        icon: ['stone', 'wheat', 'gear'][i],
+        locked: !unlocked,
+        current: state.progress.viewEra === id,
+        tag: unlocked ? null : era.available ? `完成 ${era.unlockRounds} 轮解锁` : '后续版本开放'
+      };
+    });
 
     return {
       count: digitsForRun(run),
@@ -228,6 +286,11 @@ export function boot() {
         fx.reveal(430, () => {
           busy = false;
           document.body.classList.remove('is-zooming');
+          if (pendingUnlock) {
+            const eraId = pendingUnlock;
+            pendingUnlock = null;
+            showUnlockCard(eraId);
+          }
         });
       });
     });
@@ -274,6 +337,33 @@ export function boot() {
     ui.announce(`进入${ERAS[id].name}`);
   }
 
+  /* ---------- rewards ---------- */
+
+  function showUnlockCard(eraId) {
+    const era = ERAS[eraId];
+    const rows = [`图鉴新增 3 张：${era.codex.map((c) => c.title).join('、')}`];
+    const bg = backgroundForEra(eraId, state.progress.completedRounds);
+    if (bg && bg.eraId === eraId) rows.push(`背景 · ${bg.name}`);
+    const amb = availableAmbiences().find((a) => a.eraId === eraId);
+    if (amb) rows.push(`环境音 · ${amb.name}（可在设置中开启）`);
+    ui.openUnlock({ name: era.name, tagline: era.tagline, rows });
+  }
+
+  function openCodexPanel(activeEra) {
+    const rounds = state.progress.completedRounds;
+    const eras = ERA_ORDER.filter((id) => ERAS[id].available && rounds >= ERAS[id].unlockRounds).map((id) => ({
+      id,
+      name: ERAS[id].name,
+      items: ERAS[id].codex.map((c) => ({
+        ...c,
+        slice: scene.sliceAt(id, (c.x / 100) * 1280, (c.y / 100) * 720)
+      }))
+    }));
+    if (!eras.length) return;
+    const active = eras.some((e) => e.id === activeEra) ? activeEra : eras[eras.length - 1].id;
+    ui.openCodexPanel({ eras, activeEra: active });
+  }
+
   /* ---------- timer ---------- */
 
   function settleIfDue(now) {
@@ -318,13 +408,18 @@ export function boot() {
     if (newEra) state.progress.viewEra = newEra;
     persist();
     syncTheme();
+    if (!already) audio.playComplete();
+    reconcileAudioPrefs();
+    refreshSoundUI();
 
     if (view === 'scene') {
       if (newEra) {
-        swapSceneEra(newEra);
+        swapSceneEra(newEra, () => showUnlockCard(newEra));
       } else {
         renderScene();
       }
+    } else if (newEra) {
+      pendingUnlock = newEra;
     }
     ui.announce(newEra ? `${ERAS[newEra].name}已解锁` : '本轮学习完成');
     return { type: 'focus', newEra };
@@ -397,6 +492,8 @@ export function boot() {
 
   function openSettings() {
     ui.openSettings(state.settings);
+    ui.renderSoundList(soundVM());
+    ui.renderSoundState(soundVM());
   }
 
   function saveSettings() {
@@ -428,8 +525,58 @@ export function boot() {
   }
 
   function openHotspot(id) {
-    const codex = ERAS[scene.getEra()].codex.find((c) => c.id === id);
-    if (codex) ui.openCodex(codex);
+    const eraId = scene.getEra();
+    const codex = ERAS[eraId].codex.find((c) => c.id === id);
+    if (!codex) return;
+    const spot = scene.hotspots().find((h) => h.id === id);
+    const slice = spot ? scene.sliceAt(eraId, spot.x, spot.y) : null;
+    ui.openCodex(codex, slice);
+  }
+
+  function setSoundEnabled(on) {
+    audioPrefs.enabled = on;
+    reconcileAudioPrefs();
+    persistAudio();
+    audio.syncPrefs(audioPrefs);
+    if (on && audioPrefs.ambienceId) audio.enable(audioPrefs.ambienceId);
+    else audio.disable();
+    refreshSoundUI();
+  }
+
+  function selectAmbience(id) {
+    audioPrefs.ambienceId = id;
+    persistAudio();
+    audio.syncPrefs(audioPrefs);
+    audio.select(id);
+    refreshSoundUI();
+    const entry = AMBIENCES.find((a) => a.id === id);
+    if (entry) ui.announce(`已选择环境音：${entry.name}`);
+  }
+
+  function setSoundVolume(volume) {
+    audioPrefs.volume = volume;
+    if (volume > 0 && audioPrefs.muted) audioPrefs.muted = false;
+    persistAudio();
+    audio.syncPrefs(audioPrefs);
+    audio.setVolume(volume);
+    refreshSoundUI();
+  }
+
+  function toggleMute() {
+    audioPrefs.muted = !audioPrefs.muted;
+    persistAudio();
+    audio.syncPrefs(audioPrefs);
+    audio.setMuted(audioPrefs.muted);
+    refreshSoundUI();
+    ui.announce(audioPrefs.muted ? '已静音' : '取消静音');
+  }
+
+  function soundQuick() {
+    const state = audio.getState();
+    if (state === 'playing') toggleMute();
+    else if (state === 'muted') toggleMute();
+    else if (state === 'paused' || state === 'blocked' || state === 'failed') audio.resume();
+    else if (state === 'off') setSoundEnabled(true);
   }
 
   const actions = {
@@ -444,7 +591,18 @@ export function boot() {
     'cancel-reset': () => ui.closeConfirm(),
     'end-break': endBreak,
     'close-settings': () => ui.closeSettings(),
-    'close-codex': () => ui.closeCodex()
+    'close-codex': () => ui.closeCodex(),
+    'open-codex-panel': () => openCodexPanel(scene.getEra()),
+    'close-codex-panel': () => ui.closeCodexPanel(),
+    'close-unlock': () => ui.closeUnlock(),
+    'unlock-codex': () => {
+      const eraId = state.run.completion?.unlockedEra || state.progress.viewEra;
+      ui.closeUnlock();
+      openCodexPanel(eraId);
+    },
+    'sound-quick': soundQuick,
+    'sound-mute': toggleMute,
+    'sound-retry': () => audio.resume()
   };
 
   ui.bind({
@@ -452,7 +610,10 @@ export function boot() {
     onSettingsOpen: openSettings,
     onSettingsSubmit: saveSettings,
     onHotspot: openHotspot,
-    onNode: browseEra
+    onNode: browseEra,
+    onSoundEnabled: setSoundEnabled,
+    onSoundSelect: selectAmbience,
+    onSoundVolume: setSoundVolume
   });
 
   reducedQuery.addEventListener('change', (event) => {
@@ -460,6 +621,7 @@ export function boot() {
     globe.setReduced(reduced);
     scene.setReduced(reduced);
     fx.setReduced(reduced);
+    background.setReduced(reduced);
   });
 
   document.addEventListener('visibilitychange', () => {
@@ -478,8 +640,13 @@ export function boot() {
 
   clampViewEra();
   syncTheme();
+  reconcileAudioPrefs();
+  audio.syncPrefs(audioPrefs);
+  if (audioPrefs.enabled && audioPrefs.ambienceId) audio.markPaused();
+  refreshSoundUI();
   checkNow();
   ui.showView('home');
   globe.setActive(true);
+  scene.preload(state.progress.viewEra);
   document.body.dataset.appReady = 'true';
 }

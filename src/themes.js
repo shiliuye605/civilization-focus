@@ -90,6 +90,30 @@ export const GLOBE_LAYOUT = {
       [0.33, 31, 1],
       [0.27, 28, 0.8]
     ]
+  },
+  steam: {
+    factories: [
+      { lon: 0.2, lat: 19, angle: 0.4, scale: 1 },
+      { lon: 0.232, lat: 12.5, angle: 1.2, scale: 0.9 }
+    ],
+    clocktower: { lon: 0.298, lat: 16, angle: 0.3 },
+    station: { lon: 0.315, lat: 8, angle: 0.9 },
+    coal: { lon: 0.178, lat: 14 },
+    rail: { lon0: 0.16, lon1: 0.34, lat: 3 },
+    barge: { lon: 0.247, lat: -3.5, angle: Math.PI / 2 },
+    trees3d: [
+      [0.178, 31, 0.8],
+      [0.283, 29, 0.7],
+      [0.327, 21, 0.75],
+      [0.231, 33, 0.65],
+      [0.171, 18, 0.6],
+      [0.3, 8, 0.55]
+    ],
+    rocks: [
+      [0.286, 25, 1],
+      [0.302, 30, 1.1],
+      [0.258, 33, 0.8]
+    ]
   }
 };
 
@@ -189,13 +213,49 @@ export const THEMES = {
   steam: {
     id: 'steam',
     eraId: 'steam',
-    available: false,
-    reserved: true,
+    available: true,
     clockStyle: 'industrial',
     accent: '#c98b62',
-    aria: '蒸汽城镇地球',
-    // V0.3 预留：金属机械时钟、砖砌厂房、烟囱、铁路与蒸汽设施在此接入。
-    palette: null
+    aria: '蒸汽城镇地球：砖砌厂房、烟囱、钟楼与铁路，点击进入计时',
+    palette: {
+      oceanDeep: '#0b1d2a',
+      ocean: '#16303f',
+      oceanLight: '#204455',
+      shelf: '#3a6274',
+      foam: '#b8c4c6',
+      sand: '#8a7a64',
+      grass1: '#6a6258',
+      grass2: '#7a7268',
+      grass3: '#8a8278',
+      forest1: '#3a4a3a',
+      forest2: '#465844',
+      forest3: '#54664e',
+      highland: '#7a4a3a',
+      rock: '#6d6a60',
+      rockLight: '#88857a',
+      rockDark: '#4f4c44',
+      earth: '#8a6a4a',
+      earthDark: '#6a4e34',
+      wood: '#5a4028',
+      woodLight: '#7a5a38',
+      river: '#3f5a6e',
+      riverDeep: '#2e4454',
+      riverLight: '#8a97a4',
+      forestWet: 0.35,
+      dirtCliff: '#6a5a48',
+      glow: '#ffcf8f',
+      stoneWall: '#8a8278',
+      brick: '#7a4a3a',
+      brickDark: '#5a362c',
+      brickLight: '#8a5a46',
+      slate: '#4a545e',
+      slateDark: '#363e46',
+      iron: '#2e3238',
+      brass: '#b08a4a',
+      coal: '#2e2a26',
+      lamp: '#e8c078',
+      rail: '#9aa4ac'
+    }
   }
 };
 

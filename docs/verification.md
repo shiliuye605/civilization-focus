@@ -73,3 +73,50 @@
 - 25 分钟完整真实等待（用短时长 + 假时钟验证结算）。
 - Qoder Sites 公网发布与无痕验收。
 - 手动主题切换与工业时代不在本轮范围。
+---
+
+## V0.4 增补（M4/M5 实测）
+
+### 声音合规（浏览器实测）
+
+- 首屏与刷新后：`performance.getEntriesByType('resource')` 中无任何音频请求；开启意图保留为 paused。
+- 设置内开启（真实手势）后才请求 forest.ogg；静音→「已静音」；静音中拖音量→自动取消静音并保存。
+- 场景声音按钮：paused 显示「点击恢复声音」，点击后 playing（aria「静音」）；playing 点击→muted。
+- 完成提示音：playing 且音量>0 的轮次结算时 `createOscillator` 计数 +2；muted 轮次与 volume=0 轮次结算计数不变。
+- 环境音与计时解耦：结算/休息/回首页不停止环境音。
+
+### 图鉴与解锁卡
+
+- 图鉴面板：0 轮仅「石器聚落」1 标签 3 卡片；3 轮 3 标签 9 卡片；标签切换 aria-selected 正确；卡片切片 240×160 PNG 真实解码。
+- 热点弹窗含场景切片；Esc 关闭、焦点回触发按钮。
+- 解锁卡：0→1 轮仅展示「图鉴新增 3 张」行（极光/田园流水未就绪时不出现背景/环境音行）；P1 就绪后同流程展示三行。
+- 非解锁轮（2→3）不弹卡；刷新后不重复弹卡；完成态保留「休息 / 再学一轮」选择。
+
+### 移动端（Playwright + 系统 Chrome，320×568 / 390×844）
+
+- 首页无横向滚动；设置弹窗完整在视口内且可滚动。
+- 场景工具按钮竖排右下：与牌匾、底部进度 boundingRect 无交集，且整体在视口内。
+- 图鉴面板单列（gridTemplateColumns 1 列），弹窗上下边均在视口内。
+- 截图：tools/shots/mobile-{320,390}-{home,settings,scene,codex}.png。
+
+### P1 音频测量（ffmpeg ebur128 + 解码回环检查）
+
+| 文件 | 综合响度 | 真峰值 | 循环接缝（wrap Δ vs 内部 p99.9） |
+| --- | --- | --- | --- |
+| forest.ogg | -19.7 LUFS | -2.7 dBFS | 0.0089 / 0.1929 ✓ |
+| forest.m4a | -19.7 LUFS | -2.7 dBFS | 0.0003 / 0.1925 ✓ |
+| field.ogg | -19.8 LUFS | -2.8 dBFS | 0.1013 / 0.2052 ✓ |
+| field.m4a | -19.9 LUFS | -3.4 dBFS | 0.0327 / 0.2027 ✓ |
+| steam.ogg | -20.0 LUFS | -4.4 dBFS | 0.0041 / 0.2754 ✓ |
+| steam.m4a | -20.1 LUFS | -4.4 dBFS | 0.1056 / 0.2560 ✓ |
+
+- 三条环境音响度差 ≤0.4 LU；单文件 ≤500KB；P0（forest 双容器）≈730KB ≤1.5MB。
+- 接缝判定：解码后首尾样本差小于文件内部相邻样本差 p99.9，即循环点不产生可闻爆音。
+
+## V0.4 最终回归（M6，生产构建）
+
+- 流程：`npm run build`（Vite 7，无警告；Three.js 独立分包 540KB / gzip 134KB，主包 102.5KB / gzip 37KB）→ `vite preview`（4173）→ `npm run regression`（tests/regression.mjs，Playwright + 系统 Chrome 无头 WebGL）。
+- 结果：**76 项全部通过，0 失败**（tools/regression-final.log）。
+- 覆盖：首页三元素/无滚动/时钟；点击·轻触·键盘进入与拖拽防误触；转场后 HUD 状态与控制；暂停/继续/重置确认/返回不中断/再进入同轮；运行与暂停刷新恢复；旧档无 settings 回落；设置五类非法输入与保存持久化、当前轮不变；假时钟一次性结算；1/2 轮主题·地球 aria·背景·节点同步；解锁卡真实三行、非解锁轮不弹、刷新不重复；休息流程轮数不增；节点回看与未解锁灰化真实条件；9 图鉴热点+面板切片 240×160、标签 aria、Esc 焦点；声音首屏/刷新零请求、手势开启、静音/音量/更换交叉淡化、刷新 paused 需点击恢复、NotAllowedError 可见重试、提示音 playing +2 osc / 静音与音量 0 不响；三背景静态 checksum 与重绘无横滚；减少动态像素静止；320/390 布局与工具区无重叠、图鉴单列；PNG 全拦截程序化降级不黑屏且计时正常、无 JS 异常；WebGL 禁用降级按钮可进入；长任务 0、rAF 间隔 p95 < 45ms；素材预算达标。
+- 过程中修正的均为测试脚本自身问题（解锁卡/转场与点击竞态、dataURL 前缀截取长度、结算轮数断言、生产哈希文件名匹配、故意 abort 的预期资源错误），应用代码无缺陷。
+- 截图更新：docs/screenshots/ 新增 home-steam / scene-steam / codex-panel / unlock-card，重拍 home-stone / home-tang / scene-stone / scene-tang / scene-done / settings，移动端截图同步 V0.4 版本。

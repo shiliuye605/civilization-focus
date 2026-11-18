@@ -1,4 +1,19 @@
 import { ERAS } from './eras.js';
+import stoneFar from './assets/scenes/stone/far.png';
+import stoneMid from './assets/scenes/stone/mid.png';
+import stoneNear from './assets/scenes/stone/near.png';
+import tangFar from './assets/scenes/tang/far.png';
+import tangMid from './assets/scenes/tang/mid.png';
+import tangNear from './assets/scenes/tang/near.png';
+import steamFar from './assets/scenes/steam/far.png';
+import steamMid from './assets/scenes/steam/mid.png';
+import steamNear from './assets/scenes/steam/near.png';
+
+const LAYERS = {
+  stone: [stoneFar, stoneMid, stoneNear],
+  tang: [tangFar, tangMid, tangNear],
+  steam: [steamFar, steamMid, steamNear]
+};
 
 export const SCENE_W = 1280;
 export const SCENE_H = 720;
@@ -103,6 +118,47 @@ const PAL = {
     plaster: '#e2c99a',
     blossom: '#d898a0',
     blossomLight: '#e8b8bc'
+  },
+  steam: {
+    skyTop: '#3a4a5c',
+    skyMid: '#6a7480',
+    skyWarm: '#8a97a4',
+    glow: '#b0764a',
+    skyline: '#55606c',
+    mist: '#6a7480',
+    brick: '#7a4a3a',
+    brickDark: '#5a362c',
+    brickLight: '#8a5a46',
+    slate: '#4a545e',
+    slateDark: '#363e46',
+    slateLight: '#5a646e',
+    iron: '#2e3238',
+    ironDark: '#22262b',
+    ironLight: '#4a5058',
+    brass: '#b08a4a',
+    brassLight: '#d0aa62',
+    coal: '#2e2a26',
+    coalDark: '#221e1a',
+    cobble: '#7a7268',
+    cobbleDark: '#6a6258',
+    cobbleLight: '#8a8278',
+    water: '#3f5a6e',
+    waterDeep: '#2e4454',
+    waterLight: '#8a97a4',
+    foam: '#c4ccd2',
+    wood: '#6a4a30',
+    woodLight: '#8a6a44',
+    smoke: '#8a8a86',
+    steam: '#d8dcde',
+    skin: '#d09a68',
+    skinDark: '#a87448',
+    hair: '#2e2018',
+    cloth: '#5a6a7a',
+    clothDark: '#46545f',
+    lamp: '#e8c078',
+    lampGlow: '#ffcf8f',
+    rail: '#9aa4ac',
+    ballast: '#4a4640'
   }
 };
 
@@ -133,6 +189,9 @@ export function createScene(canvas, options = {}) {
   let scale = 1;
   let offX = 0;
   let offY = 0;
+  const layerBase = new Map();
+  const layerState = new Map();
+  const procBase = new Map();
 
   const R = (g, x, y, w, h, c) => {
     g.fillStyle = c;
@@ -1135,48 +1194,46 @@ export function createScene(canvas, options = {}) {
 
   function drawStoneDynamic(g, t) {
     const p = PAL.stone;
-    waterShimmer(g, p, t, { x: 1120, y: 300, w: 150, h: 400 });
-    ripples(g, p, 1210, 500, t);
-    ripples(g, p, 1250, 590, t + 1);
+    waterShimmer(g, p, t, { x: 1020, y: 330, w: 250, h: 380 });
+    ripples(g, p, 1180, 470, t);
+    ripples(g, p, 1240, 560, t + 1);
     g.save();
     g.globalAlpha = 0.8;
     for (let i = 0; i < 5; i += 1) {
       const off = (t * 60 + i * 8) % 56;
-      R(g, 1149 + i * 8, 268 + off - 8, 4, 12, p.foam);
+      R(g, 1140 + i * 18, 350 + off - 8, 4, 12, p.foam);
     }
     g.restore();
-    smoke(g, p, 810, 236, t, 4, 12);
-    flame(g, p, 620, 476, t, 1);
-    flame(g, p, 810, 486, t + 2, 0.6);
+    smoke(g, p, 435, 455, t, 4, 12);
+    smoke(g, p, 700, 505, t + 3, 2, 8);
+    flame(g, p, 435, 516, t, 1);
+    flame(g, p, 700, 556, t + 2, 0.6);
     g.save();
-    g.translate(810, 448);
+    g.translate(700, 470);
     g.rotate(Math.sin(t * 1.5) * 0.2);
     R(g, -16, -6, 32, 12, '#8a4a2c');
     R(g, -16, -6, 32, 4, '#a86038');
     g.restore();
 
-    const wf = Math.floor(t * 4) % 2;
+    const wf = Math.floor(t * 2) % 2;
     const cx = 380 + ((t * 26) % 260);
-    person(g, cx, 350 + Math.sin(cx * 0.02) * 16, { pose: 'walk', frame: wf, carry: 'wood' });
+    person(g, cx, 430 + Math.sin(cx * 0.02) * 10, { pose: 'walk', frame: wf, carry: 'wood' });
     const cx2 = 640 - ((t * 22) % 240);
-    person(g, cx2, 400 + Math.sin(cx2 * 0.02) * 12, { pose: 'walk', frame: 1 - wf, carry: 'basket', flip: true });
-    person(g, 462, 560, { pose: 'sit', arm: 'up', frame: wf, tool: p.rockLight });
-    person(g, 512, 566, { pose: 'sit', arm: 'work', frame: 1 - wf, tool: p.rock });
-    person(g, 600, 462, { pose: 'sit', arm: 'up', frame: Math.floor(t * 1.2) % 2, cloth: '#7a5a3a', hair: '#d8d0c0' });
-    person(g, 664, 468, { pose: 'sit', frame: 0, flip: true });
-    person(g, 560, 470, { pose: 'sit', frame: 0 });
-    person(g, 846, 470, { pose: 'sit', arm: 'work', frame: wf, flip: true });
-    person(g, 372, 470, { pose: 'stand', frame: wf });
-    R(g, 380, 440 + wf * 3, 10, 16, p.hide);
-    person(g, 160, 610, { pose: 'pick', frame: wf });
-    person(g, 226, 626, { pose: 'pick', frame: 1 - wf, flip: true });
-    R(g, 250, 630, 22, 12, p.thatch);
-    R(g, 252, 626, 18, 5, p.berry);
-    person(g, 1150, 470, { pose: 'fish', frame: wf });
-    person(g, 1204, 560, { pose: 'fish', frame: 1 - wf, flip: true });
+    person(g, cx2, 470 + Math.sin(cx2 * 0.02) * 8, { pose: 'walk', frame: 1 - wf, carry: 'basket', flip: true });
+    person(g, 370, 570, { pose: 'sit', arm: 'up', frame: wf, tool: p.rockLight });
+    person(g, 420, 575, { pose: 'sit', arm: 'work', frame: 1 - wf, tool: p.rock });
+    person(g, 560, 545, { pose: 'sit', arm: 'up', frame: Math.floor(t * 0.6) % 2, cloth: '#7a5a3a', hair: '#d8d0c0' });
+    person(g, 600, 560, { pose: 'sit', frame: 0, scale: 2 });
+    person(g, 760, 555, { pose: 'sit', arm: 'work', frame: wf, flip: true });
+    person(g, 390, 310, { pose: 'stand', frame: wf });
+    R(g, 398, 280 + wf * 3, 10, 16, p.hide);
+    person(g, 880, 570, { pose: 'pick', frame: wf });
+    person(g, 950, 580, { pose: 'pick', frame: 1 - wf, flip: true });
+    person(g, 1060, 470, { pose: 'fish', frame: wf });
+    person(g, 1120, 590, { pose: 'fish', frame: 1 - wf, flip: true });
     const kx = 880 + Math.sin(t * 0.9) * 60;
-    person(g, kx, 420, { pose: 'walk', frame: wf, scale: 2, flip: Math.cos(t * 0.9) < 0 });
-    deer(g, 1000, 230, Math.floor(t * 0.8) % 2);
+    person(g, kx, 620, { pose: 'walk', frame: wf, scale: 2, flip: Math.cos(t * 0.9) < 0 });
+    deer(g, 980, 200, Math.floor(t * 0.4) % 2);
     bird(g, 1180, 120, Math.floor(t * 3) % 2);
     bird(g, 1210, 112, 1 - (Math.floor(t * 3) % 2), '#c8503a');
     const bx = (t * 40) % (SCENE_W + 200) - 100;
@@ -1185,49 +1242,380 @@ export function createScene(canvas, options = {}) {
 
   function drawTangDynamic(g, t) {
     const p = PAL.tang;
-    waterShimmer(g, p, t, { x: 1120, y: 300, w: 150, h: 400 });
-    waterShimmer(g, p, t, { x: 720, y: 430, w: 340, h: 30 });
-    waterShimmer(g, p, t, { x: 130, y: 430, w: 240, h: 70 });
-    waterShimmer(g, p, t, { x: 440, y: 460, w: 240, h: 70 });
-    wheel(g, p, 900, 400, t);
-    smoke(g, p, 800, 236, t, 3, 8);
-    const wf = Math.floor(t * 3) % 2;
-    person(g, 250, 470, { pose: 'hoe', frame: wf, cloth: p.cloth });
-    person(g, 400, 520, { pose: 'hoe', frame: 1 - wf, cloth: '#8a9ab8' });
-    person(g, 550, 570, { pose: 'hoe', frame: wf, flip: true, cloth: p.cloth });
-    person(g, 280, 470, { pose: 'weave', frame: wf, cloth: '#b08a9a' });
-    const wx = 640 + ((t * 24) % 240);
-    person(g, wx, 600 - (wx - 640) * 0.16, { pose: 'walk', frame: wf, carry: 'basket' });
-    person(g, 820, 440, { pose: 'stand', frame: wf, cloth: '#7a8ab0' });
-    const kx = 700 + Math.sin(t * 1.1) * 70;
-    person(g, kx, 640, { pose: 'walk', frame: wf, scale: 2, flip: Math.cos(t * 1.1) < 0 });
-    person(g, 1160, 480, { pose: 'fish', frame: wf });
-    const bx = 1180 + Math.sin(t * 0.4) * 20;
+    waterShimmer(g, p, t, { x: 725, y: 362, w: 115, h: 36 });
+    waterShimmer(g, p, t, { x: 1040, y: 345, w: 240, h: 70 });
+    waterShimmer(g, p, t, { x: 1185, y: 440, w: 95, h: 120 });
+    waterShimmer(g, p, t, { x: 300, y: 545, w: 250, h: 62 });
+    wheel(g, p, 800, 378, t);
+    smoke(g, p, 1115, 88, t, 3, 8);
+    smoke(g, p, 1112, 418, t + 3, 2, 6);
+    const wf = Math.floor(t * 1.6) % 2;
+    person(g, 350, 495, { pose: 'hoe', frame: wf, cloth: p.cloth });
+    person(g, 500, 515, { pose: 'hoe', frame: 1 - wf, cloth: '#8a9ab8' });
+    person(g, 560, 470, { pose: 'hoe', frame: wf, flip: true, cloth: p.cloth });
+    person(g, 210, 465, { pose: 'weave', frame: wf, cloth: '#b08a9a' });
+    const wx = 620 + ((t * 20) % 160);
+    person(g, wx, 520 + (wx - 620) * 0.2, { pose: 'walk', frame: wf, carry: 'basket' });
+    person(g, 820, 455, { pose: 'stand', frame: wf, cloth: '#7a8ab0' });
+    const kx = 640 + Math.sin(t * 1.1) * 80;
+    person(g, kx, 660, { pose: 'walk', frame: wf, scale: 2, flip: Math.cos(t * 1.1) < 0 });
+    person(g, 1000, 430, { pose: 'fish', frame: wf });
+    const bx = 1215 + Math.sin(t * 0.4) * 14;
     g.save();
-    g.translate(bx, 620 + Math.sin(t * 1.2) * 2);
+    g.translate(bx, 495 + Math.sin(t * 1.2) * 2);
     shadow(g, 0, 12, 34, 6, 0.2);
     R(g, -30, 0, 60, 10, p.wood);
     R(g, -34, -4, 8, 8, p.woodLight);
     R(g, 26, -4, 8, 8, p.woodLight);
     R(g, -12, -14, 26, 12, p.roofDark);
     g.restore();
-    ripples(g, p, bx, 636, t);
-    bird(g, 300, 140, Math.floor(t * 3) % 2);
-    bird(g, 340, 128, 1 - (Math.floor(t * 3) % 2), '#c8503a');
+    ripples(g, p, bx, 511, t);
+    bird(g, 520, 88, Math.floor(t * 3) % 2);
+    bird(g, 552, 76, 1 - (Math.floor(t * 3) % 2), '#c8503a');
     const fx = (t * 34) % (SCENE_W + 200) - 100;
-    bird(g, fx, 100 + Math.sin(t * 2) * 10, Math.floor(t * 6) % 2, '#3a2a1e');
+    bird(g, fx, 60 + Math.sin(t * 2) * 10, Math.floor(t * 6) % 2, '#3a2a1e');
     for (let i = 0; i < 3; i += 1) {
-      const x = 500 + i * 160 + Math.sin(t * 1.4 + i) * 30;
-      const y = 300 + Math.cos(t * 1.1 + i * 2) * 24;
+      const x = 440 + i * 160 + Math.sin(t * 1.4 + i) * 30;
+      const y = 360 + Math.cos(t * 1.1 + i * 2) * 24;
       R(g, x, y, 4, 3, i % 2 ? p.flower : p.blossomLight);
       R(g, x + 4, y + (Math.floor(t * 8) % 2 ? -2 : 2), 4, 3, i % 2 ? p.flower : p.blossomLight);
     }
   }
 
+  /* ---------------- steam town ---------------- */
+
+  function buildSteamBase() {
+    const p = PAL.steam;
+    const c = document.createElement('canvas');
+    c.width = SCENE_W;
+    c.height = SCENE_H;
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    R(g, 0, 0, SCENE_W, 120, p.skyTop);
+    R(g, 0, 120, SCENE_W, 80, p.skyMid);
+    R(g, 0, 200, SCENE_W, 60, p.skyWarm);
+    R(g, 0, 236, SCENE_W, 24, p.glow);
+    const rnd = rngFactory(77);
+    for (let i = 0; i < 26; i += 1) {
+      const x = Math.floor(rnd() * SCENE_W);
+      const h = 30 + Math.floor(rnd() * 70);
+      R(g, x, 260 - h, 14 + Math.floor(rnd() * 30), h, p.skyline);
+      if (rnd() > 0.6) R(g, x + 4, 260 - h - 40, 6, 40, p.skyline);
+    }
+    R(g, 0, 250, SCENE_W, 14, p.mist);
+    R(g, 794, 274, 486, 130, p.water);
+    R(g, 794, 274, 486, 8, p.waterLight);
+    R(g, 512, 240, 450, 100, p.ironDark);
+    R(g, 640, 214, 60, 30, p.iron);
+    R(g, 0, 260, 794, 144, p.cobble);
+    R(g, 0, 404, SCENE_W, 316, p.cobble);
+    for (let i = 0; i < 90; i += 1) {
+      R(g, Math.floor(rnd() * SCENE_W), 404 + Math.floor(rnd() * 180), 10, 4, rnd() > 0.5 ? p.cobbleDark : p.cobbleLight);
+    }
+    R(g, 0, 590, SCENE_W, 100, p.ballast);
+    for (let x = 0; x < SCENE_W; x += 24) R(g, x, 606, 14, 44, p.wood);
+    R(g, 0, 616, SCENE_W, 5, p.rail);
+    R(g, 0, 666, SCENE_W, 5, p.rail);
+    R(g, 77, 302, 345, 274, p.brick);
+    R(g, 77, 302, 345, 20, p.slate);
+    R(g, 128, 72, 34, 230, p.brickLight);
+    R(g, 128, 72, 34, 10, p.brickDark);
+    for (let i = 0; i < 4; i += 1) R(g, 102 + i * 52, 403, 26, 44, p.lamp);
+    for (let i = 0; i < 3; i += 1) R(g, 192 + i * 62, 490, 34, 86, p.brickDark);
+    R(g, 422, 331, 346, 245, p.brick);
+    R(g, 422, 331, 346, 22, p.slate);
+    R(g, 630, 22, 34, 310, p.brickLight);
+    for (let i = 0; i < 6; i += 1) R(g, 448 + i * 52, 403, 26, 44, p.lamp);
+    for (let i = 0; i < 6; i += 1) R(g, 448 + i * 52, 490, 30, 86, p.brickDark);
+    R(g, 768, 187, 128, 389, p.brick);
+    R(g, 768, 187, 128, 26, p.slateDark);
+    R(g, 794, 302, 34, 34, p.foam);
+    R(g, 845, 302, 34, 34, p.foam);
+    R(g, 806, 316, 10, 4, p.iron);
+    R(g, 857, 316, 10, 4, p.iron);
+    R(g, 870, 403, 307, 173, p.brick);
+    R(g, 870, 403, 307, 24, p.slate);
+    R(g, 896, 360, 20, 44, p.brickLight);
+    for (let i = 0; i < 5; i += 1) R(g, 900 + i * 56, 490, 26, 40, p.lamp);
+    R(g, 640, 547, 640, 16, p.slateDark);
+    for (let i = 0; i < 8; i += 1) R(g, 660 + i * 80, 563, 6, 30, p.iron);
+    R(g, 0, 432, 330, 288, p.coal);
+    for (let i = 0; i < 24; i += 1) R(g, Math.floor(rnd() * 300), 440 + Math.floor(rnd() * 260), 16, 12, p.coalDark);
+    R(g, 384, 490, 154, 100, p.woodLight);
+    R(g, 384, 490, 154, 8, p.wood);
+    R(g, 440, 440, 60, 50, p.woodLight);
+    R(g, 666, 410, 12, 144, p.iron);
+    R(g, 660, 400, 24, 26, p.lamp);
+    R(g, 1197, 420, 12, 134, p.iron);
+    R(g, 1191, 410, 24, 26, p.lamp);
+    return c;
+  }
+
+  function steamPuff(g, p, x, y, t, n, spread) {
+    g.save();
+    for (let i = 0; i < n; i += 1) {
+      const k = (t * 0.5 + i / n) % 1;
+      g.globalAlpha = 0.5 * (1 - k);
+      g.fillStyle = p.steam;
+      g.beginPath();
+      g.arc(x + Math.sin(t * 1.1 + i * 2) * spread * k, y - k * 60, 4 + k * 12, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.restore();
+  }
+
+  function flywheel(g, p, x, y, t) {
+    shadow(g, x, y + 46, 40, 8, 0.22);
+    R(g, x - 30, y + 30, 10, 18, p.ironDark);
+    R(g, x + 20, y + 30, 10, 18, p.ironDark);
+    g.save();
+    g.translate(x, y);
+    g.rotate(t * 1.2);
+    g.strokeStyle = p.iron;
+    g.lineWidth = 8;
+    g.beginPath();
+    g.arc(0, 0, 36, 0, Math.PI * 2);
+    g.stroke();
+    g.lineWidth = 4;
+    for (let i = 0; i < 6; i += 1) {
+      const a = (i / 6) * Math.PI * 2;
+      g.beginPath();
+      g.moveTo(0, 0);
+      g.lineTo(Math.cos(a) * 36, Math.sin(a) * 36);
+      g.stroke();
+    }
+    g.restore();
+    R(g, x - 6, y - 6, 12, 12, p.brass);
+    const rod = Math.cos(t * 1.2) * 36;
+    g.strokeStyle = p.brassLight;
+    g.lineWidth = 4;
+    g.beginPath();
+    g.moveTo(x + rod, y + Math.sin(t * 1.2) * 36);
+    g.lineTo(x - 62, y + 20);
+    g.stroke();
+  }
+
+  function train(g, p, x, t, moving) {
+    g.save();
+    shadow(g, x + 60, 630, 150, 8, 0.25);
+    for (let w = 0; w < 2; w += 1) {
+      const wx = x - 78 - w * 74;
+      R(g, wx, 574, 64, 34, p.wood);
+      R(g, wx, 574, 64, 6, p.woodLight);
+      R(g, wx + 6, 566, 52, 10, p.coal);
+      R(g, wx + 8, 608, 12, 12, p.ironDark);
+      R(g, wx + 44, 608, 12, 12, p.ironDark);
+    }
+    R(g, x, 560, 92, 44, p.ironDark);
+    R(g, x, 560, 92, 8, p.ironLight);
+    R(g, x + 18, 568, 6, 28, p.brass);
+    R(g, x + 52, 568, 6, 28, p.brass);
+    R(g, x + 92, 542, 42, 62, p.iron);
+    R(g, x + 98, 550, 20, 18, p.lamp);
+    R(g, x + 92, 536, 42, 8, p.ironDark);
+    R(g, x + 12, 532, 14, 28, p.ironDark);
+    R(g, x + 8, 528, 22, 8, p.iron);
+    R(g, x + 134, 596, 10, 18, p.ironLight);
+    R(g, x + 138, 606, 10, 12, p.ironLight);
+    const wf = Math.floor(t * 6) % 2;
+    for (const [wx, wr] of [[x + 20, 13], [x + 54, 13], [x + 106, 11]]) {
+      g.save();
+      g.translate(wx, 618);
+      g.rotate(moving ? t * 4 : 0);
+      g.fillStyle = p.ironDark;
+      g.beginPath();
+      g.arc(0, 0, wr, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = p.brass;
+      g.lineWidth = 3;
+      g.beginPath();
+      g.moveTo(-wr + 3, 0);
+      g.lineTo(wr - 3, 0);
+      g.moveTo(0, -wr + 3);
+      g.lineTo(0, wr - 3);
+      g.stroke();
+      g.restore();
+      if (wf) R(g, wx - 2, 616, 4, 4, p.brassLight);
+    }
+    g.restore();
+    if (moving) {
+      smoke(g, p, x + 19, 528, t, 3, 8);
+      steamPuff(g, p, x + 130, 606, t, 3, 10);
+    } else {
+      steamPuff(g, p, x + 130, 606, t, 2, 6);
+    }
+  }
+
+  function drawSteamDynamic(g, t) {
+    const p = PAL.steam;
+    waterShimmer(g, p, t, { x: 200, y: 245, w: 300, h: 55 });
+    waterShimmer(g, p, t, { x: 960, y: 300, w: 70, h: 60 });
+    waterShimmer(g, p, t, { x: 1160, y: 280, w: 120, h: 110 });
+    smoke(g, p, 160, 72, t, 3, 10);
+    smoke(g, p, 659, 22, t + 2, 4, 12);
+    smoke(g, p, 909, 360, t + 5, 2, 6);
+    flywheel(g, p, 320, 470, t);
+    steamPuff(g, p, 255, 465, t + 1, 2, 6);
+    g.save();
+    g.translate(600, 475);
+    g.rotate(t * 2);
+    g.strokeStyle = p.iron;
+    g.lineWidth = 4;
+    g.beginPath();
+    g.arc(0, 0, 10, 0, Math.PI * 2);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(-10, 0);
+    g.lineTo(10, 0);
+    g.stroke();
+    g.restore();
+    g.save();
+    g.translate(680, 475);
+    g.rotate(t * 2);
+    g.strokeStyle = p.iron;
+    g.lineWidth = 4;
+    g.beginPath();
+    g.arc(0, 0, 10, 0, Math.PI * 2);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(0, -10);
+    g.lineTo(0, 10);
+    g.stroke();
+    g.restore();
+    g.strokeStyle = p.ironDark;
+    g.lineWidth = 3;
+    g.beginPath();
+    g.moveTo(600, 465);
+    g.lineTo(680, 465);
+    g.moveTo(600, 485);
+    g.lineTo(680, 485);
+    g.stroke();
+    const dash = Math.floor(t * 40) % 16;
+    g.fillStyle = p.brass;
+    for (let x = 600 - dash; x < 680; x += 16) R(g, x, 464, 6, 3, p.brass);
+    const breathe = 0.22 + 0.08 * Math.sin(t * 1.5);
+    g.save();
+    g.globalAlpha = breathe;
+    g.fillStyle = p.lampGlow;
+    g.beginPath();
+    g.arc(672, 425, 16, 0, Math.PI * 2);
+    g.fill();
+    g.beginPath();
+    g.arc(1203, 432, 16, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+    const ph = t % 48;
+    let tx = 1630;
+    let moving = false;
+    if (reduced) tx = 400;
+    else if (ph < 14) {
+      tx = -350 + (ph / 14) * 750;
+      moving = true;
+    } else if (ph < 26) tx = 400;
+    else if (ph < 40) {
+      tx = 400 + ((ph - 26) / 14) * 1230;
+      moving = true;
+    }
+    if (tx > -360 && tx < 1640) train(g, p, Math.round(tx), t, moving);
+    const wf = Math.floor(t * 1.2) % 2;
+    const wx = 560 + ((t * 18) % 200);
+    person(g, wx, 585, { pose: 'walk', frame: wf, carry: 'basket', cloth: p.cloth });
+    person(g, 760, 585, { pose: 'stand', arm: 'up', frame: wf, cloth: p.clothDark });
+    person(g, 860, 585, { pose: 'stand', arm: 'up', frame: 1 - wf, cloth: '#7a5a3a' });
+    person(g, 900, 585, { pose: 'stand', frame: 0, cloth: p.cloth });
+    person(g, 930, 585, { pose: 'stand', frame: 0, scale: 2, cloth: '#8a6a4a' });
+  }
+
+  /* ---------------- layered bitmap base ---------------- */
+
+  function applyDecals(g, eraId) {
+    if (eraId === 'stone') {
+      const d = document.createElement('canvas');
+      d.width = 360;
+      d.height = 210;
+      cave(d.getContext('2d'), PAL.stone);
+      g.drawImage(d, 0, 0, 360, 210, -5, 30, 144, 84);
+      toolRack(g, PAL.stone, 660, 580);
+    }
+    if (eraId === 'steam') {
+      const p = PAL.steam;
+      R(g, 230, 470, 52, 46, p.ironDark);
+      R(g, 230, 482, 52, 4, p.brass);
+      R(g, 230, 500, 52, 4, p.brass);
+      R(g, 244, 456, 10, 14, p.iron);
+      R(g, 282, 486, 8, 8, p.brassLight);
+    }
+  }
+
+  function compositeLayers(eraId, imgs) {
+    const c = document.createElement('canvas');
+    c.width = SCENE_W;
+    c.height = SCENE_H;
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    imgs.forEach((im) => g.drawImage(im, 0, 0, SCENE_W, SCENE_H));
+    applyDecals(g, eraId);
+    return c;
+  }
+
+  function preload(eraId) {
+    const urls = LAYERS[eraId];
+    if (!urls || layerState.has(eraId)) return;
+    layerState.set(eraId, 'loading');
+    Promise.all(
+      urls.map(
+        (u) =>
+          new Promise((res, rej) => {
+            const im = new Image();
+            im.onload = () => res(im);
+            im.onerror = () => rej(new Error(u));
+            im.src = u;
+          })
+      )
+    )
+      .then((imgs) => {
+        layerBase.set(eraId, compositeLayers(eraId, imgs));
+        layerState.set(eraId, 'ready');
+        if (eraId === era) {
+          base = null;
+          if (active) draw(reduced ? 1.4 : (performance.now() - t0) / 1000);
+        }
+      })
+      .catch(() => {
+        layerState.set(eraId, 'failed');
+        console.warn(`文明专注：${eraId} 分层底图加载失败，使用程序化兜底画面。`);
+      });
+  }
+
+  function baseFor(eraId) {
+    if (layerBase.has(eraId)) return layerBase.get(eraId);
+    if (!procBase.has(eraId)) {
+      procBase.set(
+        eraId,
+        eraId === 'tang' ? buildTangBase() : eraId === 'steam' ? buildSteamBase() : buildStoneBase()
+      );
+    }
+    return procBase.get(eraId);
+  }
+
+  function sliceAt(eraId, cx, cy) {
+    const w = 240;
+    const h = 160;
+    const x = Math.max(0, Math.min(SCENE_W - w, Math.round(cx - w / 2)));
+    const y = Math.max(0, Math.min(SCENE_H - h, Math.round(cy - h / 2)));
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    g.drawImage(baseFor(eraId), x, y, w, h, 0, 0, w, h);
+    return c.toDataURL('image/png');
+  }
+
   /* ---------------- lifecycle ---------------- */
 
   function buildBase() {
-    base = era === 'tang' ? buildTangBase() : buildStoneBase();
+    base = baseFor(era);
   }
 
   function draw(t) {
@@ -1235,6 +1623,7 @@ export function createScene(canvas, options = {}) {
     ctx.clearRect(0, 0, SCENE_W, SCENE_H);
     ctx.drawImage(base, 0, 0);
     if (era === 'tang') drawTangDynamic(ctx, t);
+    else if (era === 'steam') drawSteamDynamic(ctx, t);
     else drawStoneDynamic(ctx, t);
   }
 
@@ -1264,6 +1653,7 @@ export function createScene(canvas, options = {}) {
   function start() {
     active = true;
     layout();
+    preload(era);
     if (reduced) {
       draw(1.4);
       return;
@@ -1285,6 +1675,7 @@ export function createScene(canvas, options = {}) {
     era = next;
     base = null;
     canvas.setAttribute('aria-label', ERAS[era].mapLabel);
+    preload(era);
     if (active) {
       layout();
       if (reduced) draw(1.4);
@@ -1319,15 +1710,26 @@ export function createScene(canvas, options = {}) {
     hotspots() {
       if (era === 'tang') {
         return [
-          { id: 'wheel', x: 900, y: 392 },
-          { id: 'field', x: 400, y: 470 }
+          { id: 'wheel', x: 800, y: 370 },
+          { id: 'field', x: 400, y: 530 },
+          { id: 'pagoda', x: 665, y: 180 }
+        ];
+      }
+      if (era === 'steam') {
+        return [
+          { id: 'engine', x: 320, y: 460 },
+          { id: 'loom', x: 640, y: 400 },
+          { id: 'rail', x: 980, y: 620 }
         ];
       }
       return [
-        { id: 'tools', x: 470, y: 540 },
-        { id: 'campfire', x: 620, y: 462 }
+        { id: 'tools', x: 660, y: 560 },
+        { id: 'campfire', x: 435, y: 505 },
+        { id: 'tent', x: 166, y: 225 }
       ];
     },
+    preload,
+    sliceAt,
     resize: layout
   };
 }

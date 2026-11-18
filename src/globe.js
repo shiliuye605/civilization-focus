@@ -683,6 +683,105 @@ function boat(pal) {
   return g;
 }
 
+function factory(pal, animations) {
+  const g = new THREE.Group();
+  g.add(box(0.08, 0.006, 0.06, std(pal.stoneWall || '#8a8278'), 0, 0.003, 0));
+  g.add(box(0.072, 0.036, 0.052, std(pal.brick || '#7a4a3a'), 0, 0.024, 0));
+  for (let i = 0; i < 3; i += 1) {
+    const tooth = box(0.024, 0.012, 0.054, std(pal.slate || '#4a545e'), -0.024 + i * 0.024, 0.048, 0);
+    tooth.rotation.z = 0.35;
+    g.add(tooth);
+  }
+  const winMat = new THREE.MeshBasicMaterial({ color: pal.lamp || '#e8c078' });
+  for (let i = 0; i < 4; i += 1) {
+    const w = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.01, 0.003), winMat);
+    w.position.set(-0.027 + i * 0.018, 0.026, 0.027);
+    g.add(w);
+  }
+  const ch = new THREE.Group();
+  ch.position.set(-0.03, 0.042, -0.018);
+  ch.add(box(0.012, 0.09, 0.012, std(pal.brickLight || '#8a5a46'), 0, 0.045, 0));
+  ch.add(box(0.016, 0.006, 0.016, std(pal.brickDark || '#5a362c'), 0, 0.09, 0));
+  addSmoke(ch, animations, 0.096, 2, 0.03);
+  g.add(ch);
+  return g;
+}
+
+function clocktower(pal) {
+  const g = new THREE.Group();
+  g.add(box(0.032, 0.01, 0.032, std(pal.stoneWall || '#8a8278'), 0, 0.005, 0));
+  g.add(box(0.024, 0.07, 0.024, std(pal.brick || '#7a4a3a'), 0, 0.045, 0));
+  const faceMat = new THREE.MeshBasicMaterial({ color: '#e8e4d8' });
+  const f1 = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.014, 0.002), faceMat);
+  f1.position.set(0, 0.064, 0.013);
+  const f2 = new THREE.Mesh(new THREE.BoxGeometry(0.002, 0.014, 0.014), faceMat);
+  f2.position.set(0.013, 0.064, 0);
+  g.add(f1, f2);
+  g.add(box(0.008, 0.002, 0.002, std(pal.iron || '#2e3238'), 0, 0.064, 0.015));
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.022, 4), std(pal.slateDark || '#363e46'));
+  roof.rotation.y = Math.PI / 4;
+  roof.position.y = 0.09;
+  g.add(roof);
+  g.add(box(0.003, 0.014, 0.003, std(pal.brass || '#b08a4a'), 0, 0.105, 0));
+  return g;
+}
+
+function station(pal) {
+  const g = new THREE.Group();
+  g.add(box(0.06, 0.026, 0.04, std(pal.brick || '#7a4a3a'), 0, 0.019, 0));
+  g.add(box(0.066, 0.006, 0.046, std(pal.slate || '#4a545e'), 0, 0.035, 0));
+  const winMat = new THREE.MeshBasicMaterial({ color: pal.lamp || '#e8c078' });
+  for (let i = 0; i < 3; i += 1) {
+    const w = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.009, 0.003), winMat);
+    w.position.set(-0.018 + i * 0.018, 0.02, 0.021);
+    g.add(w);
+  }
+  g.add(box(0.05, 0.004, 0.03, std(pal.slateDark || '#363e46'), 0.045, 0.024, 0));
+  [-0.012, 0.012].forEach((z) => {
+    [0.03, 0.06].forEach((x) => g.add(box(0.003, 0.022, 0.003, std(pal.iron || '#2e3238'), x, 0.011, z)));
+  });
+  return g;
+}
+
+function coalHeap(pal) {
+  const g = new THREE.Group();
+  const mat = std(pal.coal || '#2e2a26');
+  [
+    [0, 0.008, 0, 0.018],
+    [0.014, 0.006, 0.008, 0.013],
+    [-0.012, 0.006, -0.006, 0.012],
+    [0.004, 0.014, -0.004, 0.011]
+  ].forEach(([x, y, z, s]) => {
+    const m = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), mat);
+    m.position.set(x, y, z);
+    m.scale.set(1.2, 0.8, 1);
+    g.add(m);
+  });
+  return g;
+}
+
+function railBand(pal, parent, rail) {
+  const at = (lon, lat) => {
+    const e = elevationAt(lon, lat);
+    const step = Math.min(STEPS - 1, Math.floor(clamp(e, 0, 0.999) * STEPS));
+    return LAND_BASE + (step / STEPS) * LAND_H + 0.002;
+  };
+  const sleeper = std(pal.wood || '#5a4028');
+  const steel = std(pal.rail || '#9aa4ac');
+  for (let lon = rail.lon0; lon <= rail.lon1; lon += 0.015) {
+    const s = box(0.004, 0.0015, 0.016, sleeper, 0, 0, 0);
+    orientOnSphere(s, lon, rail.lat, at(lon, rail.lat), 0);
+    parent.add(s);
+  }
+  for (let lon = rail.lon0 + 0.03; lon <= rail.lon1 - 0.03; lon += 0.06) {
+    [-0.005, 0.005].forEach((d) => {
+      const r = box(0.06, 0.0015, 0.002, steel, 0, 0.002, 0);
+      orientOnSphere(r, lon, rail.lat + d * 57.3, at(lon, rail.lat) , 0);
+      parent.add(r);
+    });
+  }
+}
+
 function buildStructures(theme, parent, animations) {
   const pal = theme.palette;
   const rng = mulberry32(theme.id === 'tang' ? 91 : 57);
@@ -694,6 +793,35 @@ function buildStructures(theme, parent, animations) {
     parent.add(obj);
     addShadowDisc(parent, lon, lat, 0.045, 0.26);
   };
+
+  if (theme.id === 'steam') {
+    const S = GLOBE_LAYOUT.steam;
+    S.factories.forEach((f) => {
+      const m = factory(pal, animations);
+      m.scale.setScalar(f.scale);
+      place(m, f.lon, f.lat, f.angle);
+    });
+    place(clocktower(pal), S.clocktower.lon, S.clocktower.lat, S.clocktower.angle);
+    place(station(pal), S.station.lon, S.station.lat, S.station.angle);
+    place(coalHeap(pal), S.coal.lon, S.coal.lat, 0.6);
+    railBand(pal, parent, S.rail);
+    const barge = boat(pal);
+    barge.add(box(0.03, 0.012, 0.014, std(pal.coal || '#2e2a26'), 0, 0.02, 0));
+    orientOnSphere(barge, S.barge.lon, S.barge.lat, OCEAN_R + 0.006, S.barge.angle);
+    parent.add(barge);
+    animations.push({ type: 'boat', mesh: barge, phase: 0.8 });
+    S.trees3d.forEach(([lon, lat, s]) => {
+      const t = broadTree(pal);
+      t.scale.setScalar(s);
+      place(t, lon, lat, rng() * TAU);
+    });
+    S.rocks.forEach(([lon, lat, s]) => {
+      const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.016 * s, 0), std(pal.rock));
+      r.scale.set(1.3, 0.8, 1);
+      place(r, lon, lat, rng() * TAU);
+    });
+    return;
+  }
 
   if (theme.id === 'tang') {
     GLOBE_LAYOUT.tang.villages.forEach((v, i) => {
@@ -931,10 +1059,10 @@ export function createGlobe(canvas, options = {}) {
     const pal = next.palette;
     const terrain = buildTerrain(pal);
     features.add(terrain);
-    const spots = treeSpots(pal, next.id === 'tang' ? 210 : 430, next.id === 'tang' ? 41 : 17);
+    const spots = treeSpots(pal, next.id === 'tang' ? 210 : next.id === 'steam' ? 120 : 430, next.id === 'tang' ? 41 : next.id === 'steam' ? 23 : 17);
     features.add(buildTrees(pal, spots));
     buildStructures(next, features, animations);
-    const falls = [
+    const falls = next.id === 'steam' ? [[0.252, -4]] : [
       [0.232, 30],
       [0.243, 12],
       [0.252, -4]

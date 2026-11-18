@@ -9,7 +9,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
 
 const STATUSES = new Set(['idle', 'running', 'paused', 'done']);
 const MODES = new Set(['focus', 'break']);
-const VIEW_ERAS = new Set(['stone', 'tang']);
+const VIEW_ERAS = new Set(['stone', 'tang', 'steam']);
 
 function defaultProgress() {
   return {
@@ -112,6 +112,7 @@ function normalizeState(raw) {
       ? rawProgress.focusMinutes
       : 0;
   let viewEra = VIEW_ERAS.has(rawProgress.viewEra) ? rawProgress.viewEra : 'stone';
+  if (viewEra === 'steam' && completedRounds < 2) viewEra = completedRounds >= 1 ? 'tang' : 'stone';
   if (viewEra === 'tang' && completedRounds < 1) viewEra = 'stone';
 
   const progress = {

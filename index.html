@@ -16,6 +16,7 @@
   </head>
   <body data-view="home" data-theme="stone">
     <div class="home" id="home">
+      <canvas id="bg-canvas" class="bg-canvas" aria-hidden="true"></canvas>
       <canvas
         id="globe-canvas"
         width="320"
@@ -47,6 +48,15 @@
       <canvas id="scene-canvas" role="img" aria-label="石器聚落像素场景"></canvas>
       <div class="scene-vignette" aria-hidden="true"></div>
       <div class="hotspots" id="hotspots"></div>
+
+      <div class="scene-tools">
+        <button class="icon-btn tool-btn" id="codex-panel-btn" type="button" data-action="open-codex-panel" aria-label="打开图鉴面板" title="图鉴面板">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M8 3.5C6.8 2.6 5.2 2.2 3 2.2v10.6c2.2 0 3.8.4 5 1.3 1.2-.9 2.8-1.3 5-1.3V2.2c-2.2 0-3.8.4-5 1.3z"/><path d="M8 3.5v10.6"/></svg>
+        </button>
+        <button class="icon-btn tool-btn" id="sound-btn" type="button" data-action="sound-quick" aria-label="声音" title="声音">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M3 6v4h2.5L9 13V3L5.5 6z"/><path class="sound-wave" d="M11 5.5a3.5 3.5 0 0 1 0 5"/><path class="sound-slash" d="M11 6l3.5 4M14.5 6L11 10"/></svg>
+        </button>
+      </div>
 
       <section class="plaque" id="plaque" aria-labelledby="plaque-status">
         <div class="plaque-count" id="plaque-count" role="timer" aria-live="off">25:00</div>
@@ -99,6 +109,27 @@
           <button class="btn primary" type="submit">保存</button>
         </div>
       </form>
+      <section class="sound-section" aria-labelledby="sound-title">
+        <div class="sound-head">
+          <h3 id="sound-title">声音</h3>
+          <label class="switch">
+            <input type="checkbox" id="sound-enabled" />
+            <span class="switch-track" aria-hidden="true"></span>
+            <span class="switch-text">环境音总开关</span>
+          </label>
+        </div>
+        <div class="sound-list" id="sound-list" role="radiogroup" aria-label="环境音选择"></div>
+        <div class="sound-row">
+          <label for="sound-volume">音量</label>
+          <input type="range" id="sound-volume" min="0" max="100" step="5" value="60" />
+          <span class="sound-volume-value" id="sound-volume-value">60</span>
+          <button class="icon-btn" id="sound-mute" type="button" data-action="sound-mute" aria-label="静音" aria-pressed="false" title="静音">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M3 6v4h2.5L9 13V3L5.5 6z"/><path class="sound-wave" d="M11 5.5a3.5 3.5 0 0 1 0 5"/><path class="sound-slash" d="M11 6l3.5 4M14.5 6L11 10"/></svg>
+          </button>
+        </div>
+        <p class="sound-status" id="sound-status" role="status"></p>
+        <button class="btn ghost sound-retry" id="sound-retry" type="button" data-action="sound-retry" hidden>再次尝试</button>
+      </section>
     </dialog>
 
     <dialog class="confirm-dialog" id="confirm-dialog" aria-labelledby="confirm-title">
@@ -115,10 +146,38 @@
     <dialog class="codex-dialog" id="codex-dialog" aria-labelledby="codex-title">
       <div class="settings-panel codex-panel">
         <button class="icon-btn codex-close" type="button" data-action="close-codex" aria-label="关闭图鉴">×</button>
+        <img class="codex-slice" id="codex-slice" alt="场景切片" hidden />
         <p class="dialog-kicker" id="codex-tag">石器时代</p>
         <h2 id="codex-title">石器</h2>
         <p class="codex-use" id="codex-use">用途</p>
         <p class="codex-text" id="codex-text"></p>
+      </div>
+    </dialog>
+
+    <dialog class="codex-panel-dialog" id="codex-panel-dialog" aria-labelledby="codex-panel-title">
+      <div class="settings-panel codex-browser">
+        <header class="dialog-head">
+          <div>
+            <p class="dialog-kicker">图鉴</p>
+            <h2 id="codex-panel-title">文明图鉴</h2>
+          </div>
+          <button class="icon-btn" type="button" data-action="close-codex-panel" aria-label="关闭图鉴面板">×</button>
+        </header>
+        <div class="codex-tabs" id="codex-tabs" role="tablist" aria-label="已解锁时代"></div>
+        <div class="codex-cards" id="codex-cards"></div>
+      </div>
+    </dialog>
+
+    <dialog class="unlock-dialog" id="unlock-dialog" aria-labelledby="unlock-title">
+      <div class="settings-panel unlock-panel">
+        <p class="dialog-kicker">新篇章</p>
+        <h2 id="unlock-title"></h2>
+        <p class="unlock-tagline" id="unlock-tagline"></p>
+        <ul class="unlock-rows" id="unlock-rows"></ul>
+        <div class="dialog-actions">
+          <button class="btn ghost" type="button" data-action="unlock-codex">查看图鉴</button>
+          <button class="btn primary" type="button" data-action="close-unlock">继续</button>
+        </div>
       </div>
     </dialog>
 

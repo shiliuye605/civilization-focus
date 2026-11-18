@@ -1,0 +1,19 @@
+{
+  "name": "civilization-focus",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "description": "文明专注：极简主题首页、Three.js 时代地球与直达番茄钟。V0.2 可交互原型",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "start": "vite build && vite preview --port 4173 --strictPort --open"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0"
+  },
+  "dependencies": {
+    "three": "^0.187.0"
+  }
+}

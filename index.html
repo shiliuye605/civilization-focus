@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta
+      name="description"
+      content="文明专注：点击地球，进入你的文明场景，开始一轮安静的学习计时。"
+    />
+    <meta name="theme-color" content="#05080e" />
+    <title>文明专注</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23070d16'/%3E%3Ccircle cx='16' cy='15' r='9' fill='%236a8a51'/%3E%3Cpath d='M8 17c4-4 8 3 16-2' stroke='%233f7fa6' stroke-width='2' fill='none'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body data-view="home" data-theme="stone">
+    <div class="home" id="home">
+      <canvas
+        id="globe-canvas"
+        width="320"
+        height="320"
+        role="button"
+        tabindex="0"
+        aria-label="进入番茄钟：石器时代地球"
+      ></canvas>
+      <button class="globe-fallback" id="globe-fallback" type="button" hidden>
+        当前浏览器无法显示 3D 地球
+        <span>点击进入计时</span>
+      </button>
+      <div class="clock" id="clock" aria-live="off"></div>
+      <button
+        class="settings-btn"
+        id="settings-btn"
+        type="button"
+        aria-label="打开计时设置"
+        title="计时设置"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3.2" />
+          <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.08a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.08a1.7 1.7 0 0 0 1.56-1.11 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.08a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.08a1.7 1.7 0 0 0-1.52 1.03Z" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="scene" id="scene" hidden>
+      <canvas id="scene-canvas" role="img" aria-label="石器聚落像素场景"></canvas>
+      <div class="scene-vignette" aria-hidden="true"></div>
+      <div class="hotspots" id="hotspots"></div>
+
+      <section class="plaque" id="plaque" aria-labelledby="plaque-status">
+        <div class="plaque-count" id="plaque-count" role="timer" aria-live="off">25:00</div>
+        <div class="plaque-status" id="plaque-status">— 专注中 —</div>
+        <div class="plaque-local" id="plaque-local">当地时间 --:--</div>
+        <div class="plaque-controls" id="plaque-controls"></div>
+        <div class="plaque-choices" id="plaque-choices" hidden></div>
+      </section>
+
+      <div class="scene-bottom">
+        <p class="scene-hint" id="scene-hint">
+          <span class="hint-arrow" aria-hidden="true">⟶</span>
+          <span id="scene-hint-text">完成本轮专注，解锁盛唐田园</span>
+          <span class="hint-arrow" aria-hidden="true">⟵</span>
+        </p>
+        <div class="progress" id="progress" aria-label="文明进度">
+          <div class="progress-track" aria-hidden="true">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          <div class="progress-nodes" id="progress-nodes"></div>
+        </div>
+      </div>
+    </div>
+
+    <canvas id="fx-canvas" aria-hidden="true"></canvas>
+
+    <dialog class="settings-dialog" id="settings-dialog" aria-labelledby="settings-title">
+      <form class="settings-panel" id="settings-form" novalidate>
+        <header class="dialog-head">
+          <div>
+            <p class="dialog-kicker">番茄钟</p>
+            <h2 id="settings-title">计时设置</h2>
+          </div>
+          <button class="icon-btn" type="button" data-action="close-settings" aria-label="关闭设置">×</button>
+        </header>
+        <p class="settings-note">仅影响之后开始的新轮次，当前轮次保持不变。</p>
+        <div class="field">
+          <label for="focus-minutes">每轮学习时长（分钟）</label>
+          <input id="focus-minutes" name="focusMinutes" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" />
+          <p class="field-error" id="focus-error" role="alert" hidden></p>
+        </div>
+        <div class="field">
+          <label for="break-minutes">每轮休息时长（分钟）</label>
+          <input id="break-minutes" name="breakMinutes" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" />
+          <p class="field-error" id="break-error" role="alert" hidden></p>
+        </div>
+        <p class="form-error" id="settings-error" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button class="btn ghost" type="button" data-action="close-settings">取消</button>
+          <button class="btn primary" type="submit">保存</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="confirm-dialog" id="confirm-dialog" aria-labelledby="confirm-title">
+      <div class="settings-panel">
+        <h2 id="confirm-title">重置本轮？</h2>
+        <p class="confirm-text">当前轮次的进度会被放弃，历史记录不受影响。</p>
+        <div class="dialog-actions">
+          <button class="btn ghost" type="button" data-action="cancel-reset">继续计时</button>
+          <button class="btn primary" type="button" data-action="confirm-reset">重置本轮</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog class="codex-dialog" id="codex-dialog" aria-labelledby="codex-title">
+      <div class="settings-panel codex-panel">
+        <button class="icon-btn codex-close" type="button" data-action="close-codex" aria-label="关闭图鉴">×</button>
+        <p class="dialog-kicker" id="codex-tag">石器时代</p>
+        <h2 id="codex-title">石器</h2>
+        <p class="codex-use" id="codex-use">用途</p>
+        <p class="codex-text" id="codex-text"></p>
+      </div>
+    </dialog>
+
+    <p class="sr-only" id="sr-status" role="status" aria-live="polite"></p>
+    <noscript>请开启 JavaScript 后使用文明专注。</noscript>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

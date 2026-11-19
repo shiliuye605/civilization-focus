@@ -149,6 +149,7 @@ export function createUI() {
     els.plaqueCount.textContent = vm.count;
     els.plaqueStatus.textContent = vm.status;
     els.plaqueLocal.textContent = vm.local;
+    els.plaque.dataset.state = vm.runState;
     els.hintText.textContent = vm.hint;
 
     const focused = els.plaque.contains(document.activeElement) ? document.activeElement.dataset?.action : null;

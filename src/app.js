@@ -238,6 +238,7 @@ export function boot() {
       controls,
       choices,
       nodes,
+      runState: run.status,
       fill: fillPercent()
     };
   }

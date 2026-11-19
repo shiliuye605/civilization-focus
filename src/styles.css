@@ -12,9 +12,6 @@
   --accent: #f0a95f;
   --accent-soft: rgba(240, 169, 95, 0.14);
   --accent-line: rgba(240, 169, 95, 0.38);
-  --stone-1: #8d8b80;
-  --stone-2: #6f6d63;
-  --stone-3: #55534a;
   --wood-1: #8a6a44;
   --wood-2: #6b4f30;
 }
@@ -294,8 +291,14 @@ body.is-zooming .settings-btn {
   padding: 14px 20px 12px;
   color: #f2ead8;
   background:
-    radial-gradient(130% 100% at 28% 0%, rgba(255, 255, 255, 0.14), transparent 55%),
-    repeating-linear-gradient(118deg, var(--stone-1) 0 7px, var(--stone-2) 7px 13px, #7c7a70 13px 20px);
+    radial-gradient(42% 30% at 18% 16%, rgba(255, 255, 255, 0.1), transparent 70%),
+    radial-gradient(30% 24% at 78% 30%, rgba(0, 0, 0, 0.12), transparent 70%),
+    radial-gradient(26% 22% at 40% 72%, rgba(0, 0, 0, 0.1), transparent 70%),
+    radial-gradient(22% 18% at 86% 82%, rgba(93, 138, 76, 0.3), transparent 70%),
+    radial-gradient(16% 14% at 8% 90%, rgba(93, 138, 76, 0.24), transparent 70%),
+    linear-gradient(100deg, transparent 44%, rgba(30, 28, 24, 0.28) 44.6% 45.2%, transparent 45.8%),
+    linear-gradient(78deg, transparent 68%, rgba(30, 28, 24, 0.22) 68.5% 69%, transparent 69.6%),
+    repeating-linear-gradient(178deg, #8b887b 0 11px, #87847a 11px 19px, #838076 19px 28px, #89867c 28px 38px);
   clip-path: polygon(
     2% 10%, 9% 2%, 28% 6%, 45% 0, 63% 4%, 82% 1%, 98% 7%,
     100% 30%, 96% 52%, 100% 74%, 95% 95%, 72% 91%, 52% 99%,
@@ -303,6 +306,8 @@ body.is-zooming .settings-btn {
   );
   box-shadow:
     inset 0 2px 0 rgba(255, 255, 255, 0.16),
+    inset 3px 0 6px rgba(0, 0, 0, 0.16),
+    inset -3px 0 6px rgba(0, 0, 0, 0.16),
     inset 0 -4px 8px rgba(0, 0, 0, 0.42);
   filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.45));
 }
@@ -332,32 +337,176 @@ body[data-theme="tang"] .plaque::after {
   background: rgba(224, 190, 115, 0.4);
 }
 
+body[data-theme="tang"] .plaque-count {
+  font-family: "Ma Shan Zheng Digits", "Songti SC", serif;
+  color: #f7ecd9;
+  text-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.45),
+    0 -1px 0 rgba(255, 255, 255, 0.15);
+}
+
+body[data-theme="tang"] .plaque-status {
+  color: #f3e6c8;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+body[data-theme="tang"] .plaque-local {
+  color: rgba(248, 238, 214, 0.78);
+}
+
+body[data-theme="tang"] .chip-btn {
+  border-radius: 6px;
+  background: rgba(40, 26, 14, 0.42);
+  color: #f5ead2;
+}
+
+body[data-theme="tang"] .chip-btn:hover {
+  background: rgba(255, 214, 150, 0.22);
+}
+
+body[data-theme="tang"] .chip-btn.primary {
+  background: linear-gradient(180deg, #ffd29a, #eaa460);
+  color: #241708;
+  border-color: #ffd9a8;
+}
+
+/* steam: riveted iron & brass instrument plate */
+
+body[data-theme="steam"] .plaque {
+  background:
+    radial-gradient(3px 3px at 11px 11px, #e8c078 0 45%, #8a6a3f 46% 70%, rgba(0, 0, 0, 0.6) 71% 78%, transparent 79%),
+    radial-gradient(3px 3px at calc(100% - 11px) 11px, #e8c078 0 45%, #8a6a3f 46% 70%, rgba(0, 0, 0, 0.6) 71% 78%, transparent 79%),
+    radial-gradient(3px 3px at 11px calc(100% - 11px), #e8c078 0 45%, #8a6a3f 46% 70%, rgba(0, 0, 0, 0.6) 71% 78%, transparent 79%),
+    radial-gradient(3px 3px at calc(100% - 11px) calc(100% - 11px), #e8c078 0 45%, #8a6a3f 46% 70%, rgba(0, 0, 0, 0.6) 71% 78%, transparent 79%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 32%),
+    repeating-linear-gradient(90deg, #383d43 0 2px, #33373c 2px 4px, #3b4046 4px 6px);
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat, repeat;
+  clip-path: polygon(
+    0 10px, 10px 0, calc(100% - 10px) 0, 100% 10px,
+    100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px)
+  );
+  box-shadow:
+    inset 0 0 0 2px #7a5c33,
+    inset 0 0 0 3px rgba(0, 0, 0, 0.55),
+    inset 0 2px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -6px 12px rgba(0, 0, 0, 0.5);
+  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.5));
+}
+
+body[data-theme="steam"] .plaque::after {
+  left: 12px;
+  bottom: 8px;
+  width: 34px;
+  height: 6px;
+  border-radius: 1px;
+  background: repeating-linear-gradient(45deg, #c9a24a 0 4px, #2b2e33 4px 8px);
+  opacity: 0.85;
+}
+
+body[data-theme="steam"] .plaque-count {
+  padding: 6px 10px;
+  margin: -2px -4px 0;
+  border: 1px solid #7a5c33;
+  border-radius: 6px;
+  background: rgba(10, 12, 14, 0.55);
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.7),
+    0 1px 0 rgba(255, 255, 255, 0.06);
+  font-family: "Share Tech Mono Digits", "Consolas", monospace;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: #ffb454;
+  text-shadow: 0 0 9px rgba(255, 150, 60, 0.5);
+}
+
+body[data-theme="steam"] .plaque-status {
+  margin-top: 8px;
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  color: #cdd5dc;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+}
+
+body[data-theme="steam"] .plaque-status::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 50%;
+  vertical-align: 1px;
+  background: #5b666e;
+  box-shadow: inset 0 -1px 2px rgba(0, 0, 0, 0.6);
+}
+
+body[data-theme="steam"] .plaque[data-state="running"] .plaque-status::before {
+  background: #ffb454;
+  box-shadow: 0 0 8px rgba(255, 180, 84, 0.8);
+}
+
+body[data-theme="steam"] .plaque[data-state="paused"] .plaque-status::before {
+  background: #8a6a3f;
+  box-shadow: inset 0 -1px 2px rgba(0, 0, 0, 0.6);
+}
+
+body[data-theme="steam"] .plaque[data-state="done"] .plaque-status::before {
+  background: #7fd08a;
+  box-shadow: 0 0 8px rgba(127, 208, 138, 0.7);
+}
+
+body[data-theme="steam"] .plaque-local {
+  color: #a7b6c2;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+}
+
+body[data-theme="steam"] .chip-btn {
+  border-radius: 4px;
+  border-color: #7a5c33;
+  background: linear-gradient(180deg, #4a5057, #34393f);
+  color: #e8d9b8;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.35);
+}
+
+body[data-theme="steam"] .chip-btn:hover {
+  background: linear-gradient(180deg, #5a6169, #3d434a);
+  color: #ffd9a0;
+}
+
+body[data-theme="steam"] .chip-btn.primary {
+  background: linear-gradient(180deg, #e8b06a, #c07f3a);
+  color: #241708;
+  border-color: #f0c088;
+}
+
 .plaque-count {
-  font-family: "Trebuchet MS", "PingFang SC", system-ui, sans-serif;
+  font-family: "Cinzel Digits", "Times New Roman", serif;
   font-size: 42px;
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
-  color: #f7f0df;
+  color: #2b2822;
   text-shadow:
-    0 2px 0 rgba(0, 0, 0, 0.45),
-    0 -1px 0 rgba(255, 255, 255, 0.18);
+    0 1px 0 rgba(255, 255, 255, 0.3),
+    0 -1px 1px rgba(0, 0, 0, 0.35);
 }
 
 .plaque-status {
   margin-top: 6px;
   font-size: 12px;
+  font-weight: 600;
   letter-spacing: 0.22em;
-  color: #e6d9be;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+  color: #1f1c17;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
 .plaque-local {
   margin-top: 3px;
   font-size: 11px;
   letter-spacing: 0.06em;
-  color: rgba(240, 232, 214, 0.72);
+  color: #211e19;
   font-variant-numeric: tabular-nums;
 }
 
@@ -374,14 +523,16 @@ body[data-theme="tang"] .plaque::after {
   gap: 5px;
   min-height: 30px;
   padding: 4px 10px;
-  border: 1px solid rgba(0, 0, 0, 0.35);
-  border-radius: 8px;
-  background: rgba(20, 16, 10, 0.34);
-  color: #f0e6d0;
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  border-radius: 3px 6px 4px 7px;
+  background: linear-gradient(180deg, #4d4a42, #3a3831);
+  color: #efe6d2;
   font-size: 11.5px;
   letter-spacing: 0.04em;
   cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.3);
   transition: background 0.15s ease, transform 0.12s ease;
 }
 
@@ -392,7 +543,7 @@ body[data-theme="tang"] .plaque::after {
 }
 
 .chip-btn:hover {
-  background: rgba(255, 214, 150, 0.22);
+  background: linear-gradient(180deg, #5a564c, #45423a);
 }
 
 .chip-btn:active {
@@ -400,9 +551,9 @@ body[data-theme="tang"] .plaque::after {
 }
 
 .chip-btn.primary {
-  background: linear-gradient(180deg, #ffd29a, #eaa460);
-  color: #241708;
-  border-color: #ffd9a8;
+  background: linear-gradient(180deg, #d99a4e, #b4713a);
+  color: #2a1a0c;
+  border-color: #e8b06a;
   font-weight: 600;
 }
 
@@ -1257,6 +1408,11 @@ dialog::backdrop {
 
   .plaque-count {
     font-size: 31px;
+  }
+
+  body[data-theme="steam"] .plaque-count {
+    padding: 4px 8px;
+    margin: -1px -2px 0;
   }
 
   .plaque-status {

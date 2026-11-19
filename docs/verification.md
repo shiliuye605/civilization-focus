@@ -120,3 +120,11 @@
 - 覆盖：首页三元素/无滚动/时钟；点击·轻触·键盘进入与拖拽防误触；转场后 HUD 状态与控制；暂停/继续/重置确认/返回不中断/再进入同轮；运行与暂停刷新恢复；旧档无 settings 回落；设置五类非法输入与保存持久化、当前轮不变；假时钟一次性结算；1/2 轮主题·地球 aria·背景·节点同步；解锁卡真实三行、非解锁轮不弹、刷新不重复；休息流程轮数不增；节点回看与未解锁灰化真实条件；9 图鉴热点+面板切片 240×160、标签 aria、Esc 焦点；声音首屏/刷新零请求、手势开启、静音/音量/更换交叉淡化、刷新 paused 需点击恢复、NotAllowedError 可见重试、提示音 playing +2 osc / 静音与音量 0 不响；三背景静态 checksum 与重绘无横滚；减少动态像素静止；320/390 布局与工具区无重叠、图鉴单列；PNG 全拦截程序化降级不黑屏且计时正常、无 JS 异常；WebGL 禁用降级按钮可进入；长任务 0、rAF 间隔 p95 < 45ms；素材预算达标。
 - 过程中修正的均为测试脚本自身问题（解锁卡/转场与点击竞态、dataURL 前缀截取长度、结算轮数断言、生产哈希文件名匹配、故意 abort 的预期资源错误），应用代码无缺陷。
 - 截图更新：docs/screenshots/ 新增 home-steam / scene-steam / codex-panel / unlock-card，重拍 home-stone / home-tang / scene-stone / scene-tang / scene-done / settings，移动端截图同步 V0.4 版本。
+
+## V0.4.1 牌匾时代化（计时 HUD 三套皮肤）
+
+- 石器：缺角石牌改为斑驳岩面 + 裂纹线 + 苔痕；Cinzel 凿刻深色数字（大字对比 ≥4:1），状态/当地时间为深墨色（≥4.5:1）；燧石 chips、赭石主按钮。
+- 盛唐：木牌保留木纹直边；数字改 Ma Shan Zheng 毛笔字形；深木 chips、琥珀主按钮。
+- 工业：铆接铁牌（切角八边 + 黄铜内框 + 四角铆钉 + 拉丝铁纹）；Share Tech Mono 琥珀数字嵌凹面仪表窗；阶段句前状态指示灯随 run.status 变化（running 琥珀发光 / paused 暗铜 / done 绿 / idle 灰，plaque[data-state] 由 ui.renderScene 写入）；铁壳铜边 chips、黄铜主按钮、左下警示条纹。
+- 实测：生产构建回归 76/76 通过；320×568 与 390×844 牌匾/工具区/底栏无重叠、工具区在视口内、图鉴单列；牌匾专项截图 tools/shots/plaque-{stone,tang,steam}.png、plaque-steam-done2.png（完成态绿灯 + 黄铜选择按钮）。
+- docs/screenshots 场景/完成态/设置截图已按新牌匾重拍。

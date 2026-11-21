@@ -1,0 +1,248 @@
+{
+  "date": "2026-11-21T08:54:12.789Z",
+  "browser": "156.0.8078.80",
+  "url": "http://127.0.0.1:4183/",
+  "checks": [
+    {
+      "name": "round-1",
+      "progress": {
+        "completedRounds": 1,
+        "focusMinutes": 25,
+        "legacyEraFloor": "stone",
+        "viewEra": "stone",
+        "lastSettledRoundId": "ba227e99-8a3b-4e62-bce0-4899351a484d"
+      },
+      "completion": {
+        "unlockedEra": null,
+        "unlockedEras": [],
+        "futureEra": null,
+        "at": 1795252752976
+      }
+    },
+    {
+      "name": "v11-25-remaining-1017",
+      "width": 1017,
+      "height": 555,
+      "scrollW": 1017,
+      "scrollH": 555,
+      "left": 357.28125,
+      "right": 659.71875,
+      "bottom": 480.203125,
+      "gap": 17.953125,
+      "caption": "石器聚落 · 距解锁盛唐田园还差 25 分钟",
+      "capture": "已结算25分钟存档重新加载，无重复庆祝"
+    },
+    {
+      "name": "round-2",
+      "progress": {
+        "completedRounds": 2,
+        "focusMinutes": 50,
+        "legacyEraFloor": "stone",
+        "viewEra": "tang",
+        "lastSettledRoundId": "e2e4017d-d597-4bff-ac0c-94a69db62b76"
+      },
+      "completion": {
+        "unlockedEra": "tang",
+        "unlockedEras": [
+          "tang"
+        ],
+        "futureEra": null,
+        "at": 1795254256977
+      }
+    },
+    {
+      "name": "v11-50-unlock-320",
+      "width": 320,
+      "height": 568,
+      "scrollW": 320,
+      "scrollH": 568,
+      "left": 35.7734375,
+      "right": 284.2109375,
+      "bottom": 504.8125,
+      "gap": 83.421875,
+      "caption": "盛唐田园已解锁 · +25 分钟"
+    },
+    {
+      "name": "round-3",
+      "progress": {
+        "completedRounds": 3,
+        "focusMinutes": 75,
+        "legacyEraFloor": "stone",
+        "viewEra": "tang",
+        "lastSettledRoundId": "de62c8e6-8dbf-407a-bfd4-694770f66b99"
+      },
+      "completion": {
+        "unlockedEra": null,
+        "unlockedEras": [],
+        "futureEra": null,
+        "at": 1795255760978
+      }
+    },
+    {
+      "name": "round-4",
+      "progress": {
+        "completedRounds": 4,
+        "focusMinutes": 100,
+        "legacyEraFloor": "stone",
+        "viewEra": "steam",
+        "lastSettledRoundId": "407588af-9748-454b-9dc5-bba07450cbbd"
+      },
+      "completion": {
+        "unlockedEra": "steam",
+        "unlockedEras": [
+          "steam"
+        ],
+        "futureEra": null,
+        "at": 1795257264979
+      }
+    },
+    {
+      "name": "v11-100-all-1017",
+      "width": 1017,
+      "height": 555,
+      "scrollW": 1017,
+      "scrollH": 555,
+      "left": 357.28125,
+      "right": 659.71875,
+      "bottom": 480.203125,
+      "gap": 17.953125,
+      "caption": "蒸汽城镇 · 已累计专注 100 分钟"
+    },
+    {
+      "name": "v11-save-failure-320",
+      "width": 320,
+      "height": 568,
+      "scrollW": 320,
+      "scrollH": 568,
+      "left": 35.7734375,
+      "right": 284.2109375,
+      "bottom": 520.75,
+      "gap": 91.359375,
+      "caption": "石器聚落 · 距解锁盛唐田园还差 50 分钟"
+    },
+    {
+      "name": "single-save-failure-retry",
+      "failed": {
+        "value": "40",
+        "error": "本地保存失败，请重试",
+        "view": "home",
+        "run": {
+          "mode": "focus",
+          "status": "idle",
+          "durationMs": 1500000,
+          "deadline": null,
+          "remainingMs": null,
+          "roundId": null,
+          "completion": null
+        }
+      },
+      "retry": {
+        "mode": "focus",
+        "status": "running",
+        "durationMs": 2400000,
+        "deadline": 1795253656051,
+        "remainingMs": null,
+        "roundId": "118b3f6e-52f3-4ead-897c-f8ef042a19f2",
+        "completion": null
+      }
+    },
+    {
+      "name": "v11-break-control-320",
+      "width": 320,
+      "height": 568,
+      "scrollW": 320,
+      "scrollH": 568,
+      "left": 8.4453125,
+      "right": 311.5546875,
+      "bottom": 548,
+      "gap": 104.609375,
+      "caption": "石器聚落 · 距解锁盛唐田园还差 50 分钟"
+    },
+    {
+      "name": "v11-break-ended-320",
+      "width": 320,
+      "height": 568,
+      "scrollW": 320,
+      "scrollH": 568,
+      "left": 35.7734375,
+      "right": 284.2109375,
+      "bottom": 548,
+      "gap": 104.609375,
+      "caption": "休息已结束"
+    },
+    {
+      "name": "v11-double-unlock-1017",
+      "width": 1017,
+      "height": 555,
+      "scrollW": 1017,
+      "scrollH": 555,
+      "left": 357.28125,
+      "right": 659.71875,
+      "bottom": 480.203125,
+      "gap": 17.953125,
+      "caption": "盛唐田园、蒸汽城镇已解锁"
+    },
+    {
+      "name": "v11-double-unlock-320",
+      "width": 320,
+      "height": 568,
+      "scrollW": 320,
+      "scrollH": 568,
+      "left": 35.7734375,
+      "right": 284.2109375,
+      "bottom": 504.8125,
+      "gap": 83.421875,
+      "caption": "盛唐田园、蒸汽城镇已解锁"
+    },
+    {
+      "name": "Tab失焦首次失败后独立点击成功",
+      "width": 1017,
+      "run": {
+        "mode": "focus",
+        "status": "running",
+        "durationMs": 2400000,
+        "deadline": 1795253865145,
+        "remainingMs": null,
+        "roundId": "7b1a0fa5-5fb9-40c4-a968-5befc434de58",
+        "completion": null
+      }
+    },
+    {
+      "name": "Tab失焦首次失败后独立点击成功",
+      "width": 320,
+      "run": {
+        "mode": "focus",
+        "status": "running",
+        "durationMs": 2400000,
+        "deadline": 1795253865884,
+        "remainingMs": null,
+        "roundId": "d368bd3f-ab7d-496e-832f-4fd4b7eaf4a4",
+        "completion": null
+      }
+    },
+    {
+      "name": "natural-break-four-second-layout",
+      "caption": "休息结束 · 可以开始专注",
+      "width": 1017,
+      "height": 555,
+      "left": 357.28125,
+      "right": 659.71875,
+      "bottom": 529,
+      "gap": 36.75,
+      "scrollW": 1017,
+      "scrollH": 555
+    },
+    {
+      "name": "natural-break-four-second-layout",
+      "caption": "休息结束 · 可以开始专注",
+      "width": 320,
+      "height": 568,
+      "left": 35.7734375,
+      "right": 284.2109375,
+      "bottom": 548,
+      "gap": 104.609375,
+      "scrollW": 320,
+      "scrollH": 568
+    }
+  ]
+}

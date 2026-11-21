@@ -265,8 +265,8 @@ export function createBackground(canvas, { reducedMotion = false } = {}) {
   });
 
   return {
-    setEra(eraId, rounds) {
-      const bg = backgroundForEra(eraId, rounds);
+    setEra(eraId, progress, demo = false) {
+      const bg = backgroundForEra(eraId, progress, demo);
       const id = bg ? bg.id : 'galaxy';
       if (id === currentId) return;
       show(id, 420);

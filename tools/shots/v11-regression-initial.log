@@ -1,0 +1,224 @@
+
+> civilization-focus@0.6.0 regression
+> node tests/regression.mjs
+
+PASS 01 首页元素齐全且无滚动
+PASS 01b 球体外轮廓与说明间距≥24 说明与控件 10-14
+PASS 02 时钟 HH:mm 24h
+PASS 03 浏览地球进入场景保持待开始
+PASS 03b 场景内开始才进入 running
+PASS 04 控制区与三节点
+PASS 05 暂停/继续
+PASS 05b 继续 running
+PASS 06 重置需确认
+PASS 06b 确认后待开始
+PASS 07 返回首页计时不中断
+PASS 07b 再进入同一轮
+PASS 08 热点图鉴含切片
+PASS 08b Esc 关闭且焦点回热点
+PASS 08c 控制台无错误
+PASS 09 默认 25/5
+PASS 10 非法输入 "" 报错且不关闭
+PASS 10 非法输入 "0" 报错且不关闭
+PASS 10 非法输入 "-2" 报错且不关闭
+PASS 10 非法输入 "1.5" 报错且不关闭
+PASS 10 非法输入 "x" 报错且不关闭
+PASS 11 保存 3/2 新轮 180000
+PASS 12 修改设置不影响当前轮
+PASS 13 快进结算完成态
+PASS 13b 解锁切换 tang 主题
+PASS 14 解锁卡三行真实内容
+PASS 15 休息 02:00 休息中
+PASS 15b 休息结束回待开始轮数不增
+PASS 16 节点回看石器
+PASS 17 非解锁轮不弹卡
+PASS 18 刷新后不重复弹卡
+PASS 19 运行中刷新回首页
+PASS 19b 恢复同一 running 轮
+PASS 20 暂停刷新保持 paused 与数字
+PASS 21 旧档无 settings 按默认
+PASS 22 首屏无音频请求
+PASS 22b 默认关闭且自动+forest+space
+PASS 22c 首次默认开启且被拒时首页可见状态
+PASS 22c2 任意点击自动开始播放
+PASS 22d 首页声音按钮一键开启
+PASS 23 首页手势开启默认太空并 playing
+PASS 24 静音状态
+PASS 25 拖音量取消静音并保存
+PASS 26 刷新自动尝试播放被拒时无请求且可见
+PASS 26b 任意手势自动恢复并随时代切换
+PASS 26c 首页按钮一键静音
+PASS 26c2 再点取消静音
+PASS 26d 自动播放被拒时首页可见状态且无请求
+PASS 26d2 任意点击自动恢复不碰声音控件
+PASS 26e 键盘手势自动恢复
+PASS 27 累计 75 分钟列出自动+forest+field+space
+PASS 28 切换交叉淡化请求 field
+PASS 29 完成提示音遵守设置（playing 响）
+PASS 29b 静音轮不响
+PASS 30 拒绝播放可见重试
+PASS 30b 重试恢复 playing
+PASS 31 面板三标签九卡切片真实
+PASS 32 标签切换
+PASS 34 面板 Esc 焦点回工具按钮
+PASS 33 工业热点切片
+PASS 34b 控制台无错误
+PASS 35 stone 背景静态
+PASS 36 stone 尺寸变化重绘无横滚
+PASS 35 tang 背景静态
+PASS 36 tang 尺寸变化重绘无横滚
+PASS 35 steam 背景静态
+PASS 36 steam 尺寸变化重绘无横滚
+PASS 37 减少动态场景静止
+PASS 38 工业主题与时钟字体
+PASS 38b 工业场景 aria
+PASS 40 工业三热点
+PASS 39 0 分钟门禁与 viewEra 回退
+PASS 41 底图失败回退程序化不黑屏
+PASS 41b 降级不阻断计时
+PASS 41c 降级无页面异常
+PASS 43 无长任务且帧间隔 p95<45ms
+PASS 44 资源预算 场景≤4MB P0≤1.5MB 单音频≤500KB
+PASS 46 320px 工具区不重叠且在视口内
+PASS 47 320px 图鉴单列
+PASS 46 390px 工具区不重叠且在视口内
+PASS 47 390px 图鉴单列
+PASS 50 键盘 Enter 仅浏览不开始
+PASS 51 确认弹窗 Esc 关闭
+PASS 52 错误聚焦输入框
+PASS 53 慢加载期间关闭后保持关闭
+PASS 54 连续切换只播放最终选择
+PASS 55 过期失败不覆盖新播放
+PASS 56 加载期间静音生效
+PASS 57 到期瞬间暂停优先结算
+PASS 58 返回首页转场中到期不竞态
+PASS 59 回看转场中解锁以结算为准
+PASS 60 390px stone 全景热点完整可达
+PASS 61 390px stone 全景热点打开图鉴
+PASS 62 390px 全景切换不改计时与时代
+PASS 63 390px 横竖切换后热点不漂移
+PASS 64 390px 可切回沉浸
+PASS 60 320px steam 全景热点完整可达
+PASS 61 320px steam 全景热点打开图鉴
+PASS 62 320px 全景切换不改计时与时代
+PASS 63 320px 横竖切换后热点不漂移
+PASS 64 320px 可切回沉浸
+PASS 65 进度保存失败可见提示
+PASS 66 提示可关闭且设置仍可见状态
+PASS 67 存储不可用启动即提示
+PASS 68 隐藏期间到期返回即结算且可操作
+PASS 69 解锁提示打开时刷新不重复结算
+PASS 70 演示入口与 15 秒轮次
+PASS 71 两轮演示解锁三时代且不计正式
+PASS 72 重置演示不删正式进度
+PASS 72b 重新进入演示进度归零
+PASS 73 进入暂停正式轮退出可继续
+PASS 74 刷新回到正式模式
+PASS 75 演示声音选择不覆盖正式偏好
+PASS 76 演示中设置标识与关闭
+PASS 77 石器图集 idle/sit 目标格按锚点绘制
+PASS 78 待机脚点与外观稳定无抖动
+PASS 79 行走路线帧动画推进
+PASS 79b 精灵接入无页面错误
+PASS 77b 盛唐人物笠冠目标色绘制且无错误
+PASS 77c 蒸汽 operate 点位衬衣目标色绘制且无错误
+PASS 77d 工业 operate 点位读取 work 行并推进
+PASS 77e 图集 work 行颚口格位含扳手色且 idle 行不含
+PASS 77f 火车驶过覆盖站台人物且驶离后恢复
+PASS 80 减少动态时人物静止且画面有意义
+PASS 81 精灵加载失败降级为程序人物
+PASS 118 环境音随时代切换且偏好同步
+PASS 119 首页默认太空且往返跟随
+PASS 120 手动钉住跨时代不跟随且自动恢复
+PASS 121 待开始主控件与时代说明
+PASS 122 输入 40 Enter 仅保存停留首页
+PASS 122b 刷新后设置与首页均 40
+PASS 123a 输入 40 点按钮按 40 分钟开始
+PASS 123b 输入 40 点地球仅浏览且失焦保存 40
+PASS 123c 浏览后场景内开始按保存值 40 分钟
+PASS 124a 设置 30 首页立即 30
+PASS 124b 刷新仍 30
+PASS 125 非法 "" 保留草稿阻止开始
+PASS 125 非法 "0" 保留草稿阻止开始
+PASS 125 非法 "-2" 保留草稿阻止开始
+PASS 125 非法 "1.5" 保留草稿阻止开始
+PASS 125 非法 "x" 保留草稿阻止开始
+PASS 126a 专注中首页返回标签
+PASS 126b 专注中返回同一轮
+PASS 126c 已暂停首页标签
+PASS 126d 已暂停返回保持暂停
+PASS 126e 完成态首页可编辑开始与休息入口
+PASS 126f 完成态首页一键开始新一轮
+PASS 126g 完成态首页休息入口按设置开始休息
+PASS 127a 演示首页只读 15 秒
+PASS 127b 演示 15 秒不覆盖正式时长
+PASS 128a 编辑草稿不被定时刷新覆盖
+PASS 128b Esc 放弃恢复上次保存值
+PASS 128c 合法失焦保存 35
+PASS 129a 连点只产生一轮
+PASS 129b 拖拽不触发进入且轮次不变
+PASS 130a 保存失败同次点击不建轮且保留草稿
+PASS 130b 恢复存储后重试按 40 开始
+PASS 131a 非法草稿不阻断浏览且设置不变
+PASS 131b 场景开始使用已保存 25 分钟
+PASS 131c 返回首页草稿与错误保留
+PASS 132a 过期后确认重置仅关闭不撤销完成
+PASS 132b 到期瞬间返回专注只导航不建新轮
+PASS 132c 到期进入仍展示首次解锁卡
+PASS 133-1 短轮不按轮数解锁
+PASS 133-1 第 1 轮结算后首页完成态控件
+PASS 133-2 短轮不按轮数解锁
+PASS 133-2 第 2 轮结算后首页完成态控件
+PASS 133-3 短轮不按轮数解锁
+PASS 133-3 第 3 轮结算后首页完成态控件
+PASS 133-4 三轮累计分钟正确
+PASS 133-5 三个短轮后仍距盛唐 41 分钟
+PASS 134a 全解锁回看完成态可直接开始与休息
+PASS 134b 刷新不重放庆祝
+PASS 134c 回看后新轮到期才累计
+PASS 135a 休息中首页返回休息标签
+PASS 135b 休息自然到期回待开始不计进度
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+page.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-action="end-break"]')[22m
+[2m    - locator resolved to 2 elements. Proceeding with the first one: <button title="结束休息" type="button" id="home-reset" aria-label="结束休息" data-action="end-break" class="home-seg home-seg-reset home-seg-end">结束休息</button>[22m
+[2m  - attempting click action[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is not visible[22m
+[2m    - retrying click action[22m
+[2m    - waiting 20ms[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is not visible[22m
+[2m    - retrying click action[22m
+[2m      - waiting 100ms[22m
+[2m    58 × waiting for element to be visible, enabled and stable[22m
+[2m       - element is not visible[22m
+[2m     - retrying click action[22m
+[2m       - waiting 500ms[22m
+
+    at E:\番茄钟v2\civilization-focus\tests\regression.mjs:1719:14 {
+  log: [
+    `  - waiting for locator('[data-action="end-break"]')`,
+    '    - locator resolved to 2 elements. Proceeding with the first one: <button title="结束休息" type="button" id="home-reset" aria-label="结束休息" data-action="end-break" class="home-seg home-seg-reset home-seg-end">结束休息</button>',
+    '  - attempting click action',
+    '    2 × waiting for element to be visible, enabled and stable',
+    '      - element is not visible',
+    '    - retrying click action',
+    '    - waiting 20ms',
+    '    2 × waiting for element to be visible, enabled and stable',
+    '      - element is not visible',
+    '    - retrying click action',
+    '      - waiting 100ms',
+    '    58 × waiting for element to be visible, enabled and stable',
+    '       - element is not visible',
+    '     - retrying click action',
+    '       - waiting 500ms'
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v24.18.0

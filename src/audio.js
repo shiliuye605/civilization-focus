@@ -9,6 +9,7 @@ export function createAudio({ onState = () => {} } = {}) {
   let state = 'off';
   let prefs = { enabled: false, muted: false, volume: 0.6, ambienceId: null };
   let wantedId = null;
+  let intent = 0;
   const buffers = new Map();
 
   function setState(next) {
@@ -63,17 +64,21 @@ export function createAudio({ onState = () => {} } = {}) {
   }
 
   async function play(id, fade = CROSSFADE) {
+    const token = ++intent;
     wantedId = id;
     setState('loading');
     try {
       ensureContext();
-      await ctx.resume();
+      // 被自动播放策略拦截时 resume() 的 promise 会一直 pending，需超时判定为 blocked
+      await Promise.race([ctx.resume(), new Promise((resolve) => setTimeout(resolve, 400))]);
+      if (token !== intent) return;
       if (ctx.state !== 'running') {
         const err = new Error('blocked');
         err.name = 'NotAllowedError';
         throw err;
       }
       const buffer = await fetchBuffer(id);
+      if (token !== intent) return;
       const gain = ctx.createGain();
       gain.connect(master);
       const src = ctx.createBufferSource();
@@ -88,6 +93,7 @@ export function createAudio({ onState = () => {} } = {}) {
       current = { src, gain, id };
       setState(prefs.muted ? 'muted' : 'playing');
     } catch (err) {
+      if (token !== intent) return;
       setState(err && err.name === 'NotAllowedError' ? 'blocked' : 'failed');
     }
   }
@@ -96,11 +102,7 @@ export function createAudio({ onState = () => {} } = {}) {
     syncPrefs(next) {
       prefs = next;
       applyVolume();
-      if (current) setState(prefs.muted ? 'muted' : 'playing');
-    },
-    markPaused() {
-      wantedId = prefs.ambienceId;
-      setState('paused');
+      if (current && state !== 'loading') setState(prefs.muted ? 'muted' : 'playing');
     },
     enable(id) {
       play(id);
@@ -110,17 +112,18 @@ export function createAudio({ onState = () => {} } = {}) {
       if (id) play(id);
     },
     disable() {
+      intent += 1;
       if (ctx && current) fadeOutCurrent(0.3);
       setState('off');
     },
     select(id) {
       wantedId = id;
-      if (current) play(id);
+      if (prefs.enabled) play(id);
     },
     setMuted(muted) {
       prefs = { ...prefs, muted };
       applyVolume();
-      if (current) setState(muted ? 'muted' : 'playing');
+      if (current && state !== 'loading') setState(muted ? 'muted' : 'playing');
     },
     setVolume(volume) {
       prefs = { ...prefs, volume };

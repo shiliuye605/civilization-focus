@@ -1,7 +1,7 @@
 const KEY = 'wmf:v1:audio';
 
 export function defaultAudioPrefs() {
-  return { version: 1, enabled: false, muted: false, volume: 0.6, ambienceId: null };
+  return { version: 1, enabled: true, muted: false, volume: 0.6, ambienceId: null, followDefault: true };
 }
 
 export function loadAudioPrefs() {
@@ -23,7 +23,8 @@ export function loadAudioPrefs() {
         enabled: data.enabled === true,
         muted: data.muted === true,
         volume: Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : fallback.volume,
-        ambienceId: typeof data.ambienceId === 'string' ? data.ambienceId : null
+        ambienceId: typeof data.ambienceId === 'string' ? data.ambienceId : null,
+        followDefault: data.followDefault !== false
       },
       recovered: false
     };

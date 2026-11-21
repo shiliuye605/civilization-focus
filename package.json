@@ -1,9 +1,9 @@
 {
   "name": "civilization-focus",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.6.0",
   "type": "module",
-  "description": "文明专注：极简主题首页、Three.js 时代地球与直达番茄钟。V0.4 时代画面精修与奖赏系统",
+  "description": "文明专注：极简主题首页、Three.js 时代地球与直达番茄钟。V0.6 三时代人物精修",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

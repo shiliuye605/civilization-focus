@@ -1,0 +1,66 @@
+{
+  "date": "2026-11-21T09:05:45.954Z",
+  "browser": "156.0.8078.80",
+  "clock": "真实Date.now，无快进",
+  "focused": {
+    "observedAt": 1795251885705,
+    "state": {
+      "version": 1,
+      "kind": "formal",
+      "updatedAt": 1795251885696,
+      "settings": {
+        "focusMinutes": 1,
+        "breakMinutes": 1
+      },
+      "progress": {
+        "completedRounds": 1,
+        "focusMinutes": 1,
+        "legacyEraFloor": "stone",
+        "viewEra": "stone",
+        "lastSettledRoundId": "d32822f3-bcae-4ba4-a1e9-550462114f05"
+      },
+      "run": {
+        "mode": "focus",
+        "status": "done",
+        "durationMs": 60000,
+        "deadline": null,
+        "remainingMs": 0,
+        "roundId": "d32822f3-bcae-4ba4-a1e9-550462114f05",
+        "completion": {
+          "unlockedEra": null,
+          "unlockedEras": [],
+          "futureEra": null,
+          "at": 1795251885696
+        }
+      }
+    }
+  },
+  "rested": {
+    "observedAt": 1795251945954,
+    "state": {
+      "version": 1,
+      "kind": "formal",
+      "updatedAt": 1795251945946,
+      "settings": {
+        "focusMinutes": 1,
+        "breakMinutes": 1
+      },
+      "progress": {
+        "completedRounds": 1,
+        "focusMinutes": 1,
+        "legacyEraFloor": "stone",
+        "viewEra": "stone",
+        "lastSettledRoundId": "d32822f3-bcae-4ba4-a1e9-550462114f05"
+      },
+      "run": {
+        "mode": "focus",
+        "status": "idle",
+        "durationMs": 60000,
+        "deadline": null,
+        "remainingMs": null,
+        "roundId": null,
+        "completion": null
+      }
+    }
+  }
+}

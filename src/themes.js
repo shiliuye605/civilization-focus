@@ -1,4 +1,4 @@
-import { unlockedLevel } from './eras.js';
+import { highestUnlockedEra } from './eras.js';
 
 export const GLOBE_LAYOUT = {
   blobs: [
@@ -124,7 +124,7 @@ export const THEMES = {
     available: true,
     clockStyle: 'stone',
     accent: '#f0a95f',
-    aria: '石器时代地球：森林、河流、原始营地与篝火，点击进入计时',
+    aria: '石器时代地球：森林、河流、原始营地与篝火，点击浏览场景',
     palette: {
       oceanDeep: '#0a2735',
       ocean: '#143f50',
@@ -166,7 +166,7 @@ export const THEMES = {
     available: true,
     clockStyle: 'wood',
     accent: '#e0a95e',
-    aria: '盛唐田园地球：农田、水渠、村落与水车，点击进入计时',
+    aria: '盛唐田园地球：农田、水渠、村落与水车，点击浏览场景',
     palette: {
       oceanDeep: '#0c2f3f',
       ocean: '#174b5f',
@@ -216,7 +216,7 @@ export const THEMES = {
     available: true,
     clockStyle: 'industrial',
     accent: '#c98b62',
-    aria: '蒸汽城镇地球：砖砌厂房、烟囱、钟楼与铁路，点击进入计时',
+    aria: '蒸汽城镇地球：砖砌厂房、烟囱、钟楼与铁路，点击浏览场景',
     palette: {
       oceanDeep: '#0b1d2a',
       ocean: '#16303f',
@@ -259,9 +259,7 @@ export const THEMES = {
   }
 };
 
-export function resolveTheme(progress) {
-  const level = unlockedLevel(progress.completedRounds);
-  const desired = level >= 3 ? THEMES.steam : level >= 2 ? THEMES.tang : THEMES.stone;
-  if (desired.available) return desired;
-  return THEMES.tang;
+export function resolveTheme(progress, demo = false) {
+  const desired = THEMES[highestUnlockedEra(progress, demo)];
+  return desired.available ? desired : THEMES.stone;
 }

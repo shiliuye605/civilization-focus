@@ -918,40 +918,70 @@ export function createGlobe(canvas, options = {}) {
   let vw = window.innerWidth;
   let vh = window.innerHeight;
   let baseDist = 4;
+  let screenR = 100;
+  let globeCenterY = vh / 2;
+  let camY = 0;
+  let bottomReserve = 0;
   let zoom = 0;
   let zoomTween = null;
   const zoomTarget = lonLatToVector3(0.26, 16, 1);
+  const SHRINK = 0.85;
+  const TOP_PAD = 10;
+  const OUTER_K = 1.22;
 
-  function defaultDistance() {
-    const vHalf = (camera.fov * DEG) / 2;
-    const hHalf = Math.atan(Math.tan(vHalf) * camera.aspect);
+  function computeLayout() {
+    const fov = camera ? camera.fov : 32;
+    const aspect = camera ? camera.aspect : vw / vh;
+    const vHalf = (fov * DEG) / 2;
+    const hHalf = Math.atan(Math.tan(vHalf) * aspect);
     const fill = vw < 700 ? 0.8 : 0.66;
-    return 1 / Math.sin(Math.min(vHalf, hHalf) * fill);
+    const legacyR = (Math.tan(Math.min(vHalf, hHalf) * fill) / Math.tan(vHalf)) * (vh / 2);
+    const regionBottom = vh - bottomReserve;
+    const avail = Math.max(80, regionBottom - TOP_PAD);
+    const r = Math.min(legacyR * SHRINK, avail / (2 * OUTER_K));
+    screenR = r;
+    globeCenterY = TOP_PAD + avail / 2;
+    const t = (r * Math.tan(vHalf)) / (vh / 2);
+    baseDist = OCEAN_R / Math.sin(Math.atan(t));
+    camY = ((globeCenterY - vh / 2) * baseDist * Math.tan(vHalf)) / (vh / 2);
+    canvas.dataset.cx = String(Math.round(vw / 2));
+    canvas.dataset.cy = String(Math.round(globeCenterY));
+    canvas.dataset.r = String(Math.round(r));
+    canvas.dataset.outer = String(Math.round((r * 1.2) / OCEAN_R));
+    placeFallback();
   }
 
   function applyCamera() {
     const eased = zoom * zoom * (3 - 2 * zoom);
     const dist = baseDist + (1.42 - baseDist) * eased;
     const look = zoomTarget.clone().multiplyScalar(eased * 0.86);
-    camera.position.set(0, 0, dist);
-    camera.lookAt(look);
+    const yOff = camY * (1 - eased);
+    camera.position.set(0, yOff, dist);
+    camera.lookAt(look.x, look.y + yOff, look.z);
     camera.updateProjectionMatrix();
   }
 
   function isPointOnGlobe(x, y) {
     if (!camera || zoom > 0.05) return false;
-    const vHalf = (camera.fov * DEG) / 2;
-    const angular = Math.asin(Math.min(0.99, 1 / camera.position.z));
-    const radius = (Math.tan(angular) / Math.tan(vHalf)) * (vh / 2);
-    return Math.hypot(x - vw / 2, y - vh / 2) <= radius * 1.02;
+    return Math.hypot(x - vw / 2, y - globeCenterY) <= screenR * 1.02;
+  }
+
+  function placeFallback() {
+    if (!fallback || fallback.hidden) return;
+    const size = Math.max(150, Math.min(screenR * 1.7, vw * 0.7, vh * 0.6));
+    fallback.style.width = `${Math.round(size)}px`;
+    fallback.style.left = `${Math.round(vw / 2)}px`;
+    fallback.style.top = `${Math.round(globeCenterY)}px`;
   }
 
   function showFallback() {
     supported = false;
     canvas.hidden = true;
     document.body.classList.add('no-webgl');
+    computeLayout();
     if (fallback) {
       fallback.hidden = false;
+      placeFallback();
       fallback.addEventListener('click', () => onActivate?.());
     }
   }
@@ -1158,13 +1188,26 @@ export function createGlobe(canvas, options = {}) {
   }
 
   function resize() {
-    if (!renderer) return;
     vw = window.innerWidth;
     vh = window.innerHeight;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.setSize(vw, vh, false);
-    camera.aspect = vw / vh;
-    baseDist = defaultDistance();
+    if (renderer) {
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(vw, vh, false);
+      camera.aspect = vw / vh;
+    }
+    computeLayout();
+    if (renderer) {
+      applyCamera();
+      if (reduced && active) renderOnce();
+    }
+  }
+
+  function setBottomReserve(px) {
+    const next = Math.max(0, Math.round(px));
+    if (next === bottomReserve) return;
+    bottomReserve = next;
+    computeLayout();
+    if (!renderer) return;
     applyCamera();
     if (reduced && active) renderOnce();
   }
@@ -1256,6 +1299,7 @@ export function createGlobe(canvas, options = {}) {
       } else startLoop();
     },
     resize,
+    setBottomReserve,
     isSupported: () => supported,
     zoomIn: (duration, cb) => flyTo(1, duration, cb),
     zoomOut: (duration, cb) => flyTo(0, duration, cb),

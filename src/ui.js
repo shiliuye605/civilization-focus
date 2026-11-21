@@ -18,6 +18,19 @@ export function createUI() {
     globeFallback: $('globe-fallback'),
     clock: $('clock'),
     settingsBtn: $('settings-btn'),
+    homeDock: $('home-dock'),
+    eraCaption: $('era-caption'),
+    homeControl: $('home-control'),
+    homePause: $('home-pause'),
+    homeSepLeft: $('home-sep-left'),
+    homeStart: $('home-start'),
+    homeSep: $('home-sep'),
+    homeMinutes: $('home-minutes'),
+    homeUnit: $('home-unit'),
+    homeSepRight: $('home-sep-right'),
+    homeReset: $('home-reset'),
+    homeError: $('home-error'),
+    homeBreak: $('home-break'),
     sceneCanvas: $('scene-canvas'),
     hotspots: $('hotspots'),
     plaque: $('plaque'),
@@ -46,6 +59,7 @@ export function createUI() {
     codexSlice: $('codex-slice'),
     bgCanvas: $('bg-canvas'),
     soundBtn: $('sound-btn'),
+    homeSoundBtn: $('home-sound-btn'),
     codexPanelBtn: $('codex-panel-btn'),
     soundEnabled: $('sound-enabled'),
     soundList: $('sound-list'),
@@ -61,6 +75,15 @@ export function createUI() {
     unlockTitle: $('unlock-title'),
     unlockTagline: $('unlock-tagline'),
     unlockRows: $('unlock-rows'),
+    storageNotice: $('storage-notice'),
+    storageNoticeText: $('storage-notice-text'),
+    storageStatus: $('storage-status'),
+    fitBtn: $('fit-btn'),
+    demoBadge: $('demo-badge'),
+    demoEnter: $('demo-enter-btn'),
+    demoExit: $('demo-exit-btn'),
+    demoClose: $('demo-close-btn'),
+    demoConfirmDialog: $('demo-confirm-dialog'),
     srStatus: $('sr-status')
   };
 
@@ -72,12 +95,18 @@ export function createUI() {
     onNode: () => {},
     onSoundEnabled: () => {},
     onSoundSelect: () => {},
-    onSoundVolume: () => {}
+    onSoundVolume: () => {},
+    onHomeStart: () => {},
+    onHomeBreak: () => {},
+    onHomeInput: () => {},
+    onHomeCommit: () => {},
+    onHomeCancel: () => {}
   };
   let lastConfirmTrigger = null;
   let lastHotspotTrigger = null;
   let lastPanelTrigger = null;
   let lastUnlockTrigger = null;
+  let lastDemoConfirmTrigger = null;
   let panelVM = null;
 
   document.addEventListener('click', (event) => {
@@ -96,6 +125,40 @@ export function createUI() {
     handlers.onSettingsSubmit();
   });
 
+  let startingPointer = false;
+  document.addEventListener('pointerdown', (event) => {
+    startingPointer = els.homeStart.contains(event.target);
+    handlers.onHomeStartIntent?.();
+  }, true);
+  document.addEventListener('pointercancel', () => {
+    startingPointer = false;
+    handlers.onHomeStartIntent?.();
+  });
+  document.addEventListener('keydown', () => {
+    startingPointer = false;
+    handlers.onHomeStartIntent?.();
+  }, true);
+  els.homeStart.addEventListener('click', () => {
+    handlers.onHomeStart();
+    startingPointer = false;
+  });
+  els.homeBreak.addEventListener('click', () => handlers.onHomeBreak());
+  els.homeMinutes.addEventListener('focus', () => els.homeMinutes.select());
+  els.homeMinutes.addEventListener('input', () => handlers.onHomeInput(els.homeMinutes.value));
+  els.homeMinutes.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      handlers.onHomeCommit('enter');
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      handlers.onHomeCancel();
+    }
+  });
+  els.homeMinutes.addEventListener('blur', () => {
+    handlers.onHomeCommit(startingPointer ? 'start-blur' : 'blur');
+    startingPointer = false;
+  });
+
   function clearFieldError(field) {
     const input = field === 'focus' ? els.focusInput : els.breakInput;
     const err = field === 'focus' ? els.focusError : els.breakError;
@@ -109,7 +172,7 @@ export function createUI() {
   els.focusInput.addEventListener('input', () => clearFieldError('focus'));
   els.breakInput.addEventListener('input', () => clearFieldError('break'));
 
-  for (const dialog of [els.settingsDialog, els.confirmDialog, els.codexDialog, els.codexPanelDialog, els.unlockDialog]) {
+  for (const dialog of [els.settingsDialog, els.confirmDialog, els.codexDialog, els.codexPanelDialog, els.unlockDialog, els.demoConfirmDialog]) {
     dialog.addEventListener('click', (event) => {
       if (event.target === dialog) dialog.close();
     });
@@ -119,6 +182,7 @@ export function createUI() {
   els.codexDialog.addEventListener('close', () => lastHotspotTrigger?.focus({ preventScroll: true }));
   els.codexPanelDialog.addEventListener('close', () => lastPanelTrigger?.focus({ preventScroll: true }));
   els.unlockDialog.addEventListener('close', () => lastUnlockTrigger?.focus({ preventScroll: true }));
+  els.demoConfirmDialog.addEventListener('close', () => lastDemoConfirmTrigger?.focus({ preventScroll: true }));
 
   els.soundEnabled.addEventListener('change', () => handlers.onSoundEnabled(els.soundEnabled.checked));
   els.soundVolume.addEventListener('input', () => handlers.onSoundVolume(Number(els.soundVolume.value) / 100));
@@ -130,10 +194,122 @@ export function createUI() {
     handlers = { ...handlers, ...next };
   }
 
+  const STORAGE_TEXT = {
+    'progress-save': '当前浏览器无法保存进度，本次内容可能在关闭页面后丢失。',
+    'audio-save': '声音偏好无法保存，刷新后声音设置会回到默认。',
+    'load-recovered': '存档读取异常，已恢复可用的初始进度。',
+    'audio-recovered': '声音偏好读取异常，已恢复默认声音设置。',
+    'storage-unavailable': '浏览器存储不可用，本次进度与声音设置可能无法保存。'
+  };
+  const storageKinds = new Set();
+
+  function setStorageStatus(kind) {
+    const fresh = !storageKinds.has(kind);
+    storageKinds.add(kind);
+    els.storageStatus.hidden = false;
+    els.storageStatus.textContent = `存储状态：${[...storageKinds].map((k) => STORAGE_TEXT[k]).join(' ')}`;
+    if (fresh) {
+      els.storageNoticeText.textContent = STORAGE_TEXT[kind];
+      els.storageNotice.hidden = false;
+    }
+  }
+
+  function dismissStorage() {
+    els.storageNotice.hidden = true;
+  }
+
+  function setFitButton(mode) {
+    const panorama = mode === 'panorama';
+    els.fitBtn.setAttribute('aria-pressed', String(panorama));
+    els.fitBtn.setAttribute('aria-label', panorama ? '切换沉浸视图' : '切换全景视图');
+    els.fitBtn.title = panorama ? '全景（点击切回沉浸）' : '全景 / 沉浸';
+  }
+
+  function setDemoMode(on) {
+    els.demoBadge.hidden = !on;
+    els.demoEnter.hidden = on;
+    els.demoExit.hidden = !on;
+    els.demoClose.hidden = !on;
+    els.settingsForm.hidden = on;
+    document.body.dataset.demo = on ? 'true' : 'false';
+  }
+
+  function openDemoConfirm() {
+    lastDemoConfirmTrigger = document.activeElement;
+    if (!els.demoConfirmDialog.open) els.demoConfirmDialog.showModal();
+  }
+
+  function closeDemoConfirm() {
+    if (els.demoConfirmDialog.open) els.demoConfirmDialog.close();
+  }
+
   function showView(view) {
     els.home.hidden = view !== 'home';
     els.scene.hidden = view !== 'scene';
     document.body.dataset.view = view;
+  }
+
+  function renderHome(vm) {
+    if (els.eraCaption.textContent !== vm.caption) els.eraCaption.textContent = vm.caption;
+    if (els.homeStart.textContent !== vm.buttonLabel) els.homeStart.textContent = vm.buttonLabel;
+    els.homeControl.dataset.state = vm.state;
+    const seg = vm.segment || null;
+    els.homePause.hidden = !seg;
+    els.homeSepLeft.hidden = !seg;
+    els.homeSepRight.hidden = !seg;
+    els.homeReset.hidden = !seg;
+    if (seg) {
+      const resetLabel = vm.isBreak ? '结束休息' : '重置本轮';
+      const resetAction = vm.isBreak ? 'end-break' : 'home-reset';
+      if (els.homeReset.dataset.action !== resetAction) {
+        els.homeReset.dataset.action = resetAction;
+        els.homeReset.innerHTML = vm.isBreak ? '结束休息' : ICONS.reset;
+      }
+      els.homeReset.classList.toggle('home-seg-end', Boolean(vm.isBreak));
+      els.homeReset.setAttribute('aria-label', resetLabel);
+      els.homeReset.title = resetLabel;
+      els.homePause.dataset.mode = seg;
+      const segLabel = seg === 'pause' ? '暂停本轮' : '继续本轮';
+      if (els.homePause.getAttribute('aria-label') !== segLabel) {
+        els.homePause.setAttribute('aria-label', segLabel);
+        els.homePause.title = segLabel;
+      }
+    }
+    els.homeSep.hidden = vm.hideInput;
+    els.homeMinutes.hidden = vm.hideInput;
+    els.homeUnit.hidden = vm.hideInput;
+    els.homeBreak.hidden = !vm.breakLabel;
+    if (vm.breakLabel && els.homeBreak.textContent !== vm.breakLabel) els.homeBreak.textContent = vm.breakLabel;
+    if (!vm.hideInput && !vm.inputLocked) {
+      const value = String(vm.minutes);
+      if (els.homeMinutes.value !== value) els.homeMinutes.value = value;
+    }
+  }
+
+  function getHomeMinutes() {
+    return els.homeMinutes.value;
+  }
+
+  function setHomeMinutesValue(value) {
+    els.homeMinutes.value = String(value);
+  }
+
+  function focusHomeMinutes() {
+    els.homeMinutes.focus({ preventScroll: true });
+  }
+
+  function setHomeError(message) {
+    if (message) {
+      els.homeError.hidden = false;
+      els.homeError.textContent = message;
+      els.homeMinutes.setAttribute('aria-invalid', 'true');
+      els.homeControl.dataset.invalid = 'true';
+    } else {
+      els.homeError.hidden = true;
+      els.homeError.textContent = '';
+      els.homeMinutes.removeAttribute('aria-invalid');
+      els.homeControl.dataset.invalid = 'false';
+    }
   }
 
   function chipButton(action, label, icon, primary = false) {
@@ -329,7 +505,6 @@ export function createUI() {
     loading: '加载中…',
     playing: '正在播放环境音。',
     muted: '已静音。',
-    paused: '已保留开启偏好，点击恢复声音后继续播放。',
     blocked: '浏览器阻止了声音，点击再次尝试。',
     failed: '声音素材加载失败，点击重试。'
   };
@@ -352,20 +527,20 @@ export function createUI() {
   }
 
   function setSoundButton(state) {
-    const btn = els.soundBtn;
-    btn.classList.toggle('is-muted', state === 'muted' || state === 'off');
-    btn.classList.toggle('is-blocked', state === 'blocked' || state === 'failed');
     const labels = {
       off: '开启声音',
       loading: '声音加载中',
       playing: '静音',
       muted: '取消静音',
-      paused: '点击恢复声音',
       blocked: '浏览器阻止了声音，点击再次尝试',
       failed: '声音加载失败，点击重试'
     };
-    btn.setAttribute('aria-label', labels[state] || '声音');
-    btn.title = labels[state] || '声音';
+    for (const btn of [els.soundBtn, els.homeSoundBtn]) {
+      btn.classList.toggle('is-muted', state === 'muted' || state === 'off');
+      btn.classList.toggle('is-blocked', state === 'blocked' || state === 'failed');
+      btn.setAttribute('aria-label', labels[state] || '声音');
+      btn.title = labels[state] || '声音';
+    }
   }
 
   function openSettings(settings) {
@@ -431,6 +606,11 @@ export function createUI() {
     els,
     bind,
     showView,
+    renderHome,
+    getHomeMinutes,
+    setHomeMinutesValue,
+    focusHomeMinutes,
+    setHomeError,
     renderScene,
     setCount,
     setLocal,
@@ -451,6 +631,12 @@ export function createUI() {
     setSettingsErrors,
     openConfirm,
     closeConfirm,
+    setStorageStatus,
+    dismissStorage,
+    setFitButton,
+    setDemoMode,
+    openDemoConfirm,
+    closeDemoConfirm,
     announce
   };
 }

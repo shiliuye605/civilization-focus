@@ -1,10 +1,12 @@
-import { ERA_ORDER, ERAS } from './eras.js';
+import { ERA_ORDER, canEnterEra } from './eras.js';
 import forestOgg from './assets/audio/forest.ogg';
 import forestM4a from './assets/audio/forest.m4a';
 import fieldOgg from './assets/audio/field.ogg';
 import fieldM4a from './assets/audio/field.m4a';
 import steamOgg from './assets/audio/steam.ogg';
 import steamM4a from './assets/audio/steam.m4a';
+import spaceOgg from './assets/audio/space.ogg';
+import spaceM4a from './assets/audio/space.m4a';
 
 export const BACKGROUNDS = [
   { id: 'galaxy', name: '银河星空', eraId: 'stone', available: true },
@@ -29,28 +31,35 @@ export const AMBIENCES = [
   },
   {
     id: 'steam',
-    name: '柔和蒸汽',
+    name: '蒸汽火车',
     eraId: 'steam',
     available: true,
     files: { ogg: steamOgg, m4a: steamM4a }
+  },
+  {
+    id: 'space',
+    name: '太空首页',
+    eraId: 'home',
+    home: true,
+    available: true,
+    files: { ogg: spaceOgg, m4a: spaceM4a }
   }
 ];
 
-export function isUnlocked(eraId, rounds) {
-  const era = ERAS[eraId];
-  return Boolean(era && era.available && rounds >= era.unlockRounds);
+export function isUnlocked(eraId, progress, demo = false) {
+  return canEnterEra(eraId, progress, demo);
 }
 
-export function unlockedBackgrounds(rounds) {
-  return BACKGROUNDS.filter((b) => b.available && isUnlocked(b.eraId, rounds));
+export function unlockedBackgrounds(progress, demo = false) {
+  return BACKGROUNDS.filter((b) => b.available && isUnlocked(b.eraId, progress, demo));
 }
 
-export function unlockedAmbiences(rounds) {
-  return AMBIENCES.filter((a) => a.available && a.files && isUnlocked(a.eraId, rounds));
+export function unlockedAmbiences(progress, demo = false) {
+  return AMBIENCES.filter((a) => a.available && a.files && (a.home || isUnlocked(a.eraId, progress, demo)));
 }
 
-export function backgroundForEra(eraId, rounds) {
-  const list = unlockedBackgrounds(rounds);
+export function backgroundForEra(eraId, progress, demo = false) {
+  const list = unlockedBackgrounds(progress, demo);
   if (!list.length) return null;
   const exact = list.find((b) => b.eraId === eraId);
   if (exact) return exact;

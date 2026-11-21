@@ -1,0 +1,10 @@
+PASS A12 音频已可播放
+PASS A12 自然休息到期恰好一组双音
+PASS A12 导航/重复 tick 不重响不加分钟轮数
+PASS A12 已结束休息刷新不补播
+PASS A12 开声音主动结束 running 也永不补音
+PASS A12 开声音主动结束 paused 也永不补音
+PASS A12 zero-volume 禁止提示音但不丢文字
+PASS A12 blocked 禁止提示音但不丢文字
+8 passed, 0 failed
+[]

@@ -106,18 +106,18 @@ function truePeak(x) {
   return peak;
 }
 
-function normalize(x) {
+function normalize(x, peakLimit = PEAK_LIMIT) {
   let y = x;
-  const knee = PEAK_LIMIT * 0.6;
+  const knee = peakLimit * 0.6;
   for (let pass = 0; pass < 3; pass += 1) {
     const gain = Math.pow(10, (TARGET_LUFS - lufs(y)) / 20);
     y = y.map((v) => {
       const s = v * gain;
       const a = Math.abs(s);
       if (a <= knee) return s;
-      return Math.sign(s) * (knee + (PEAK_LIMIT - knee) * Math.tanh((a - knee) / (PEAK_LIMIT - knee)));
+      return Math.sign(s) * (knee + (peakLimit - knee) * Math.tanh((a - knee) / (peakLimit - knee)));
     });
-    if (truePeak(y) <= PEAK_LIMIT && Math.abs(lufs(y) - TARGET_LUFS) < 0.25) break;
+    if (truePeak(y) <= peakLimit && Math.abs(lufs(y) - TARGET_LUFS) < 0.25) break;
   }
   return y;
 }
@@ -280,17 +280,22 @@ function encodeWav(x) {
   return buf;
 }
 
-const RECIPES = { forest: synthForest, field: synthField, steam: synthSteam };
-const ids = process.argv.slice(2);
-if (!ids.length || ids.some((id) => !RECIPES[id])) {
-  console.error('usage: node tools/audio-forge.mjs <forest|field|steam> [...]');
-  process.exit(1);
-}
-mkdirSync(resolve(ROOT, 'tools/audio-wip'), { recursive: true });
-for (const id of ids) {
-  const raw = loopify(RECIPES[id]());
-  const done = normalize(raw);
-  const path = resolve(ROOT, `tools/audio-wip/${id}.wav`);
-  writeFileSync(path, encodeWav(done));
-  console.log(`${id}: ${done.length / SR}s  ${lufs(done).toFixed(2)} LUFS  peak ${(20 * Math.log10(truePeak(done))).toFixed(2)} dBTP  -> ${path}`);
+export { SR, FADE, TARGET_LUFS, PEAK_LIMIT, kWeight, lufs, truePeak, normalize, loopify, encodeWav };
+
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  const RECIPES = { forest: synthForest, field: synthField, steam: synthSteam };
+  const ids = process.argv.slice(2);
+  if (!ids.length || ids.some((id) => !RECIPES[id])) {
+    console.error('usage: node tools/audio-forge.mjs <forest|field|steam> [...]');
+    process.exit(1);
+  }
+  mkdirSync(resolve(ROOT, 'tools/audio-wip'), { recursive: true });
+  for (const id of ids) {
+    const raw = loopify(RECIPES[id]());
+    const done = normalize(raw);
+    const path = resolve(ROOT, `tools/audio-wip/${id}.wav`);
+    writeFileSync(path, encodeWav(done));
+    console.log(`${id}: ${done.length / SR}s  ${lufs(done).toFixed(2)} LUFS  peak ${(20 * Math.log10(truePeak(done))).toFixed(2)} dBTP  -> ${path}`);
+  }
 }

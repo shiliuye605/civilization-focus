@@ -1,4 +1,5 @@
 import { ERAS } from './eras.js';
+import { CHAR_CELL, CHAR_ANCHOR, CHAR_ACTIONS, POSE_ACTION, CHAR_MIRROR, CHAR_IMAGES, charReady } from './characters.js';
 import stoneFar from './assets/scenes/stone/far.png';
 import stoneMid from './assets/scenes/stone/mid.png';
 import stoneNear from './assets/scenes/stone/near.png';
@@ -185,10 +186,12 @@ export function createScene(canvas, options = {}) {
   let raf = 0;
   let last = 0;
   let t0 = performance.now();
+  let now = 0;
   let base = null;
   let scale = 1;
   let offX = 0;
   let offY = 0;
+  let fit = 'immersive';
   const layerBase = new Map();
   const layerState = new Map();
   const procBase = new Map();
@@ -328,6 +331,65 @@ export function createScene(canvas, options = {}) {
         R(g, -8 * s, -11 * s, 4 * s, 7 * s, p.thatchDark);
         R(g, -8 * s, -11 * s, 4 * s, 1 * s, p.thatch);
       }
+    }
+    g.restore();
+  }
+
+  function drawChar(g, x, y, o = {}) {
+    if (!charReady(era)) return person(g, x, y, o);
+    const p = PAL[era];
+    const s = o.scale || 3;
+    const ds = s / 3;
+    const pose = o.pose || 'stand';
+    const act = CHAR_ACTIONS[POSE_ACTION[pose] || 'idle'];
+    const phase = (o.frame || 0) * (act.frames > 2 ? 2 : 1);
+    const fi = act.frames === 1 ? 0 : (Math.floor(now * act.fps) + phase) % act.frames;
+    const f = o.frame || 0;
+    const bob = pose === 'pick' ? f : 0;
+    shadow(g, x, y + 2 * ds, 7 * ds, 2 * ds, 0.18);
+    g.save();
+    g.translate(Math.round(x), Math.round(y + bob));
+    g.scale(o.flip && CHAR_MIRROR[era] ? -1 : 1, 1);
+    g.imageSmoothingEnabled = false;
+    g.drawImage(
+      CHAR_IMAGES[era],
+      fi * CHAR_CELL.w, act.row * CHAR_CELL.h, CHAR_CELL.w, CHAR_CELL.h,
+      -Math.round(CHAR_ANCHOR.x * ds), -Math.round(CHAR_ANCHOR.y * ds),
+      Math.round(CHAR_CELL.w * ds), Math.round(CHAR_CELL.h * ds)
+    );
+    if (o.carry === 'wood') {
+      R(g, -19 * ds, -28 * ds, 8 * ds, 11 * ds, p.wood);
+      R(g, -19 * ds, -28 * ds, 8 * ds, 2 * ds, p.woodLight);
+      R(g, -18 * ds, -24 * ds, 5 * ds, 1 * ds, p.woodLight);
+      R(g, -18 * ds, -21 * ds, 5 * ds, 1 * ds, p.woodLight);
+    } else if (o.carry === 'basket') {
+      R(g, 7 * ds, -17 * ds, 7 * ds, 6 * ds, p.thatch);
+      R(g, 7 * ds, -17 * ds, 7 * ds, 1 * ds, p.thatchDark);
+      R(g, 9 * ds, -18 * ds, 3 * ds, 1 * ds, p.berry);
+    }
+    if (o.carry === 'bundle') {
+      R(g, -20 * ds, -34 * ds, 6 * ds, 10 * ds, p.thatchDark);
+      R(g, -20 * ds, -34 * ds, 6 * ds, 1 * ds, p.thatch);
+      R(g, -14 * ds, -32 * ds, 4 * ds, 1 * ds, p.thatchDark);
+    }
+    if (pose === 'pick') {
+      R(g, 7 * ds, -17 * ds, 7 * ds, 6 * ds, p.thatch);
+      R(g, 7 * ds, -17 * ds, 7 * ds, 1 * ds, p.thatchDark);
+      R(g, 9 * ds, -18 * ds, 3 * ds, 1 * ds, p.berry);
+    }
+    if (pose === 'fish') {
+      g.strokeStyle = p.wood;
+      g.lineWidth = s * 0.7;
+      g.beginPath();
+      g.moveTo(10 * ds, -18 * ds);
+      g.lineTo(22 * ds, -30 * ds + f * ds);
+      g.stroke();
+      g.strokeStyle = p.foam;
+      g.lineWidth = 1;
+      g.beginPath();
+      g.moveTo(22 * ds, -30 * ds + f * ds);
+      g.lineTo(22 * ds, 2 * ds);
+      g.stroke();
     }
     g.restore();
   }
@@ -1217,22 +1279,22 @@ export function createScene(canvas, options = {}) {
 
     const wf = Math.floor(t * 2) % 2;
     const cx = 380 + ((t * 26) % 260);
-    person(g, cx, 430 + Math.sin(cx * 0.02) * 10, { pose: 'walk', frame: wf, carry: 'wood' });
+    drawChar(g, cx, 430 + Math.sin(cx * 0.02) * 10, { pose: 'walk', frame: wf, carry: 'wood' });
     const cx2 = 640 - ((t * 22) % 240);
-    person(g, cx2, 470 + Math.sin(cx2 * 0.02) * 8, { pose: 'walk', frame: 1 - wf, carry: 'basket', flip: true });
-    person(g, 370, 570, { pose: 'sit', arm: 'up', frame: wf, tool: p.rockLight });
-    person(g, 420, 575, { pose: 'sit', arm: 'work', frame: 1 - wf, tool: p.rock });
-    person(g, 560, 545, { pose: 'sit', arm: 'up', frame: Math.floor(t * 0.6) % 2, cloth: '#7a5a3a', hair: '#d8d0c0' });
-    person(g, 600, 560, { pose: 'sit', frame: 0, scale: 2 });
-    person(g, 760, 555, { pose: 'sit', arm: 'work', frame: wf, flip: true });
-    person(g, 390, 310, { pose: 'stand', frame: wf });
+    drawChar(g, cx2, 470 + Math.sin(cx2 * 0.02) * 8, { pose: 'walk', frame: 1 - wf, carry: 'basket', flip: true });
+    drawChar(g, 370, 570, { pose: 'sit', arm: 'up', frame: wf, tool: p.rockLight });
+    drawChar(g, 420, 575, { pose: 'sit', arm: 'work', frame: 1 - wf, tool: p.rock });
+    drawChar(g, 560, 545, { pose: 'sit', arm: 'up', frame: Math.floor(t * 0.6) % 2, cloth: '#7a5a3a', hair: '#d8d0c0' });
+    drawChar(g, 600, 560, { pose: 'sit', frame: 0, scale: 2 });
+    drawChar(g, 760, 555, { pose: 'sit', arm: 'work', frame: wf, flip: true });
+    drawChar(g, 390, 310, { pose: 'stand', frame: wf });
     R(g, 398, 280 + wf * 3, 10, 16, p.hide);
-    person(g, 880, 570, { pose: 'pick', frame: wf });
-    person(g, 950, 580, { pose: 'pick', frame: 1 - wf, flip: true });
-    person(g, 1060, 470, { pose: 'fish', frame: wf });
-    person(g, 1120, 590, { pose: 'fish', frame: 1 - wf, flip: true });
+    drawChar(g, 880, 570, { pose: 'pick', frame: wf });
+    drawChar(g, 950, 580, { pose: 'pick', frame: 1 - wf, flip: true });
+    drawChar(g, 1060, 470, { pose: 'fish', frame: wf });
+    drawChar(g, 1120, 590, { pose: 'fish', frame: 1 - wf, flip: true });
     const kx = 880 + Math.sin(t * 0.9) * 60;
-    person(g, kx, 620, { pose: 'walk', frame: wf, scale: 2, flip: Math.cos(t * 0.9) < 0 });
+    drawChar(g, kx, 620, { pose: 'walk', frame: wf, scale: 2, flip: Math.cos(t * 0.9) < 0 });
     deer(g, 980, 200, Math.floor(t * 0.4) % 2);
     bird(g, 1180, 120, Math.floor(t * 3) % 2);
     bird(g, 1210, 112, 1 - (Math.floor(t * 3) % 2), '#c8503a');
@@ -1250,16 +1312,16 @@ export function createScene(canvas, options = {}) {
     smoke(g, p, 1115, 88, t, 3, 8);
     smoke(g, p, 1112, 418, t + 3, 2, 6);
     const wf = Math.floor(t * 1.6) % 2;
-    person(g, 350, 495, { pose: 'hoe', frame: wf, cloth: p.cloth });
-    person(g, 500, 515, { pose: 'hoe', frame: 1 - wf, cloth: '#8a9ab8' });
-    person(g, 560, 470, { pose: 'hoe', frame: wf, flip: true, cloth: p.cloth });
-    person(g, 210, 465, { pose: 'weave', frame: wf, cloth: '#b08a9a' });
+    drawChar(g, 350, 495, { pose: 'hoe', frame: wf, cloth: p.cloth });
+    drawChar(g, 500, 515, { pose: 'hoe', frame: 1 - wf, cloth: '#8a9ab8' });
+    drawChar(g, 560, 470, { pose: 'hoe', frame: wf, flip: true, cloth: p.cloth });
+    drawChar(g, 210, 465, { pose: 'weave', frame: wf, cloth: '#b08a9a' });
     const wx = 620 + ((t * 20) % 160);
-    person(g, wx, 520 + (wx - 620) * 0.2, { pose: 'walk', frame: wf, carry: 'basket' });
-    person(g, 820, 455, { pose: 'stand', frame: wf, cloth: '#7a8ab0' });
+    drawChar(g, wx, 520 + (wx - 620) * 0.2, { pose: 'walk', frame: wf, carry: 'basket' });
+    drawChar(g, 820, 455, { pose: 'stand', frame: wf, cloth: '#7a8ab0' });
     const kx = 640 + Math.sin(t * 1.1) * 80;
-    person(g, kx, 660, { pose: 'walk', frame: wf, scale: 2, flip: Math.cos(t * 1.1) < 0 });
-    person(g, 1000, 430, { pose: 'fish', frame: wf });
+    drawChar(g, kx, 660, { pose: 'walk', frame: wf, scale: 2, flip: Math.cos(t * 1.1) < 0 });
+    drawChar(g, 1000, 430, { pose: 'fish', frame: wf });
     const bx = 1215 + Math.sin(t * 0.4) * 14;
     g.save();
     g.translate(bx, 495 + Math.sin(t * 1.2) * 2);
@@ -1516,14 +1578,15 @@ export function createScene(canvas, options = {}) {
       tx = 400 + ((ph - 26) / 14) * 1230;
       moving = true;
     }
-    if (tx > -360 && tx < 1640) train(g, p, Math.round(tx), t, moving);
     const wf = Math.floor(t * 1.2) % 2;
     const wx = 560 + ((t * 18) % 200);
-    person(g, wx, 585, { pose: 'walk', frame: wf, carry: 'basket', cloth: p.cloth });
-    person(g, 760, 585, { pose: 'stand', arm: 'up', frame: wf, cloth: p.clothDark });
-    person(g, 860, 585, { pose: 'stand', arm: 'up', frame: 1 - wf, cloth: '#7a5a3a' });
-    person(g, 900, 585, { pose: 'stand', frame: 0, cloth: p.cloth });
-    person(g, 930, 585, { pose: 'stand', frame: 0, scale: 2, cloth: '#8a6a4a' });
+    drawChar(g, wx, 585, { pose: 'walk', frame: wf, carry: 'basket', cloth: p.cloth });
+    drawChar(g, 342, 508, { pose: 'operate', flip: true, cloth: p.clothDark });
+    drawChar(g, 860, 585, { pose: 'stand', arm: 'up', frame: 1 - wf, cloth: '#7a5a3a' });
+    drawChar(g, 900, 585, { pose: 'stand', frame: 0, cloth: p.cloth });
+    drawChar(g, 930, 585, { pose: 'stand', frame: 0, scale: 2, cloth: '#8a6a4a' });
+    // 人物脚点均在轨道平面之后：火车驶过时必须遮住站台与 yard 上的人
+    if (tx > -360 && tx < 1640) train(g, p, Math.round(tx), t, moving);
   }
 
   /* ---------------- layered bitmap base ---------------- */
@@ -1619,6 +1682,7 @@ export function createScene(canvas, options = {}) {
   }
 
   function draw(t) {
+    now = t;
     if (!base) buildBase();
     ctx.clearRect(0, 0, SCENE_W, SCENE_H);
     ctx.drawImage(base, 0, 0);
@@ -1639,11 +1703,27 @@ export function createScene(canvas, options = {}) {
   function layout() {
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    scale = Math.max(vw / SCENE_W, vh / SCENE_H);
+    if (fit === 'panorama') {
+      const plaqueEl = document.getElementById('plaque');
+      const bottomEl = document.querySelector('.scene-bottom');
+      const top = plaqueEl ? plaqueEl.getBoundingClientRect().bottom + 10 : 160;
+      const bottom = bottomEl ? vh - bottomEl.getBoundingClientRect().top + 10 : 130;
+      const availW = Math.max(120, vw - 16);
+      const availH = Math.max(90, vh - top - bottom);
+      scale = Math.min(availW / SCENE_W, availH / SCENE_H);
+      const w = SCENE_W * scale;
+      const h = SCENE_H * scale;
+      offX = (vw - w) / 2;
+      offY = top + (availH - h) / 2;
+    } else {
+      scale = Math.max(vw / SCENE_W, vh / SCENE_H);
+      const w = SCENE_W * scale;
+      const h = SCENE_H * scale;
+      offX = (vw - w) / 2;
+      offY = (vh - h) / 2;
+    }
     const w = SCENE_W * scale;
     const h = SCENE_H * scale;
-    offX = (vw - w) / 2;
-    offY = (vh - h) / 2;
     canvas.style.width = `${w}px`;
     canvas.style.height = `${h}px`;
     canvas.style.left = `${offX}px`;
@@ -1730,6 +1810,14 @@ export function createScene(canvas, options = {}) {
     },
     preload,
     sliceAt,
+    setFit(mode) {
+      fit = mode === 'panorama' ? 'panorama' : 'immersive';
+      if (active) {
+        layout();
+        if (reduced) draw(1.4);
+      }
+    },
+    getFit: () => fit,
     resize: layout
   };
 }

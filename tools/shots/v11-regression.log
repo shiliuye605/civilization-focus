@@ -1,0 +1,494 @@
+
+> civilization-focus@0.6.0 regression
+> node tests/regression.mjs
+
+PASS 01 首页元素齐全且无滚动
+PASS 01b 球体外轮廓与说明间距≥24 说明与控件 10-14
+PASS 02 时钟 HH:mm 24h
+PASS 03 浏览地球进入场景保持待开始
+PASS 03b 场景内开始才进入 running
+PASS 04 控制区与三节点
+PASS 05 暂停/继续
+PASS 05b 继续 running
+PASS 06 重置需确认
+PASS 06b 确认后待开始
+PASS 07 返回首页计时不中断
+PASS 07b 再进入同一轮
+PASS 08 热点图鉴含切片
+PASS 08b Esc 关闭且焦点回热点
+PASS 08c 控制台无错误
+PASS 09 默认 25/5
+PASS 10 非法输入 "" 报错且不关闭
+PASS 10 非法输入 "0" 报错且不关闭
+PASS 10 非法输入 "-2" 报错且不关闭
+PASS 10 非法输入 "1.5" 报错且不关闭
+PASS 10 非法输入 "x" 报错且不关闭
+PASS 11 保存 3/2 新轮 180000
+PASS 12 修改设置不影响当前轮
+PASS 13 快进结算完成态
+PASS 13b 解锁切换 tang 主题
+PASS 14 解锁卡三行真实内容
+PASS 15 休息 02:00 休息中
+PASS 15b 休息结束回待开始轮数不增
+PASS 16 节点回看石器
+PASS 17 非解锁轮不弹卡
+PASS 18 刷新后不重复弹卡
+PASS 19 运行中刷新回首页
+PASS 19b 恢复同一 running 轮
+PASS 20 暂停刷新保持 paused 与数字
+PASS 21 旧档无 settings 按默认
+PASS 22 首屏无音频请求
+PASS 22b 默认关闭且自动+forest+space
+PASS 22c 首次默认开启且被拒时首页可见状态
+PASS 22c2 任意点击自动开始播放
+PASS 22d 首页声音按钮一键开启
+PASS 23 首页手势开启默认太空并 playing
+PASS 24 静音状态
+PASS 25 拖音量取消静音并保存
+PASS 26 刷新自动尝试播放被拒时无请求且可见
+PASS 26b 任意手势自动恢复并随时代切换
+PASS 26c 首页按钮一键静音
+PASS 26c2 再点取消静音
+PASS 26d 自动播放被拒时首页可见状态且无请求
+PASS 26d2 任意点击自动恢复不碰声音控件
+PASS 26e 键盘手势自动恢复
+PASS 27 累计 75 分钟列出自动+forest+field+space
+PASS 28 切换交叉淡化请求 field
+PASS 29 完成提示音遵守设置（playing 响）
+PASS 29b 静音轮不响
+PASS 30 拒绝播放可见重试
+PASS 30b 重试恢复 playing
+PASS 31 面板三标签九卡切片真实
+PASS 32 标签切换
+PASS 34 面板 Esc 焦点回工具按钮
+PASS 33 工业热点切片
+PASS 34b 控制台无错误
+PASS 35 stone 背景静态
+PASS 36 stone 尺寸变化重绘无横滚
+PASS 35 tang 背景静态
+PASS 36 tang 尺寸变化重绘无横滚
+PASS 35 steam 背景静态
+PASS 36 steam 尺寸变化重绘无横滚
+PASS 37 减少动态场景静止
+PASS 38 工业主题与时钟字体
+PASS 38b 工业场景 aria
+PASS 40 工业三热点
+PASS 39 0 分钟门禁与 viewEra 回退
+PASS 41 底图失败回退程序化不黑屏
+PASS 41b 降级不阻断计时
+PASS 41c 降级无页面异常
+PASS 43 无长任务且帧间隔 p95<45ms
+PASS 44 资源预算 场景≤4MB P0≤1.5MB 单音频≤500KB
+PASS 46 320px 工具区不重叠且在视口内
+PASS 47 320px 图鉴单列
+PASS 46 390px 工具区不重叠且在视口内
+PASS 47 390px 图鉴单列
+PASS 50 键盘 Enter 仅浏览不开始
+PASS 51 确认弹窗 Esc 关闭
+PASS 52 错误聚焦输入框
+PASS 53 慢加载期间关闭后保持关闭
+PASS 54 连续切换只播放最终选择
+PASS 55 过期失败不覆盖新播放
+PASS 56 加载期间静音生效
+PASS 57 到期瞬间暂停优先结算
+PASS 58 返回首页转场中到期不竞态
+PASS 59 回看转场中解锁以结算为准
+PASS 60 390px stone 全景热点完整可达
+PASS 61 390px stone 全景热点打开图鉴
+PASS 62 390px 全景切换不改计时与时代
+PASS 63 390px 横竖切换后热点不漂移
+PASS 64 390px 可切回沉浸
+PASS 60 320px steam 全景热点完整可达
+PASS 61 320px steam 全景热点打开图鉴
+PASS 62 320px 全景切换不改计时与时代
+PASS 63 320px 横竖切换后热点不漂移
+PASS 64 320px 可切回沉浸
+PASS 65 进度保存失败可见提示
+PASS 66 提示可关闭且设置仍可见状态
+PASS 67 存储不可用启动即提示
+PASS 68 隐藏期间到期返回即结算且可操作
+PASS 69 解锁提示打开时刷新不重复结算
+PASS 70 演示入口与 15 秒轮次
+PASS 71 两轮演示解锁三时代且不计正式
+PASS 72 重置演示不删正式进度
+PASS 72b 重新进入演示进度归零
+PASS 73 进入暂停正式轮退出可继续
+PASS 74 刷新回到正式模式
+PASS 75 演示声音选择不覆盖正式偏好
+PASS 76 演示中设置标识与关闭
+PASS 77 石器图集 idle/sit 目标格按锚点绘制
+PASS 78 待机脚点与外观稳定无抖动
+PASS 79 行走路线帧动画推进
+PASS 79b 精灵接入无页面错误
+PASS 77b 盛唐人物笠冠目标色绘制且无错误
+PASS 77c 蒸汽 operate 点位衬衣目标色绘制且无错误
+PASS 77d 工业 operate 点位读取 work 行并推进
+PASS 77e 图集 work 行颚口格位含扳手色且 idle 行不含
+PASS 77f 火车驶过覆盖站台人物且驶离后恢复
+PASS 80 减少动态时人物静止且画面有意义
+PASS 81 精灵加载失败降级为程序人物
+PASS 118 环境音随时代切换且偏好同步
+PASS 119 首页默认太空且往返跟随
+PASS 120 手动钉住跨时代不跟随且自动恢复
+PASS 121 待开始主控件与时代说明
+PASS 122 输入 40 Enter 仅保存停留首页
+PASS 122b 刷新后设置与首页均 40
+PASS 123a 输入 40 点按钮按 40 分钟开始
+PASS 123b 输入 40 点地球仅浏览且失焦保存 40
+PASS 123c 浏览后场景内开始按保存值 40 分钟
+PASS 124a 设置 30 首页立即 30
+PASS 124b 刷新仍 30
+PASS 125 非法 "" 保留草稿阻止开始
+PASS 125 非法 "0" 保留草稿阻止开始
+PASS 125 非法 "-2" 保留草稿阻止开始
+PASS 125 非法 "1.5" 保留草稿阻止开始
+PASS 125 非法 "x" 保留草稿阻止开始
+PASS 126a 专注中首页返回标签
+PASS 126b 专注中返回同一轮
+PASS 126c 已暂停首页标签
+PASS 126d 已暂停返回保持暂停
+PASS 126e 完成态首页可编辑开始与休息入口
+PASS 126f 完成态首页一键开始新一轮
+PASS 126g 完成态首页休息入口按设置开始休息
+PASS 127a 演示首页只读 15 秒
+PASS 127b 演示 15 秒不覆盖正式时长
+PASS 128a 编辑草稿不被定时刷新覆盖
+PASS 128b Esc 放弃恢复上次保存值
+PASS 128c 合法失焦保存 35
+PASS 129a 连点只产生一轮
+PASS 129b 拖拽不触发进入且轮次不变
+PASS 130a 保存失败同次点击不建轮且保留草稿
+PASS 130b 恢复存储后重试按 40 开始
+PASS 131a 非法草稿不阻断浏览且设置不变
+PASS 131b 场景开始使用已保存 25 分钟
+PASS 131c 返回首页草稿与错误保留
+PASS 132a 过期后确认重置仅关闭不撤销完成
+PASS 132b 到期瞬间返回专注只导航不建新轮
+PASS 132c 到期进入仍展示首次解锁卡
+PASS 133-1 短轮不按轮数解锁
+PASS 133-1 第 1 轮结算后首页完成态控件
+PASS 133-2 短轮不按轮数解锁
+PASS 133-2 第 2 轮结算后首页完成态控件
+PASS 133-3 短轮不按轮数解锁
+PASS 133-3 第 3 轮结算后首页完成态控件
+PASS 133-4 三轮累计分钟正确
+PASS 133-5 三个短轮后仍距盛唐 41 分钟
+PASS 134a 全解锁回看完成态可直接开始与休息
+PASS 134b 刷新不重放庆祝
+PASS 134c 回看后新轮到期才累计
+PASS 135a 休息中首页返回休息标签
+PASS 135b 休息自然到期回待开始不计进度
+PASS 135c 手动结束休息回待开始
+PASS 135d 休息暂停首页标签
+PASS 135e 休息暂停返回保持暂停
+PASS 136a 首页一次性解锁反馈
+PASS 136b 演示不显示正式解锁反馈
+PASS 136c 演示只解锁自己的盛唐
+PASS 136d 演示完成态只读 15 秒与休息 5 秒
+PASS 136e 退出演示回正式完成态且通知不重放
+PASS 136f 刷新不重放解锁反馈
+PASS 136g 新一轮完成显示普通反馈而非上轮解锁
+PASS 136h 普通反馈到期恢复真实累计
+PASS 137 超安全整数 99999999… 拒绝且不影响轮次
+PASS 137 超安全整数 15000000… 拒绝且不影响轮次
+PASS 138a 完成态输入 40 保存且轮次不变
+PASS 138b 设置 30 双向同步且完成轮不变
+PASS 138c 完成态保存后开始按新值 30 分钟
+PASS 139 1280x800 idle 外轮廓间距与无滚动
+PASS 139 1280x800 done 外轮廓间距与无滚动
+PASS 139 1280x800 error 外轮廓间距与无滚动
+PASS 139 1280x800 running 外轮廓间距与无滚动
+PASS 139 1280x800 paused 外轮廓间距与无滚动
+PASS 139 1017x555 idle 外轮廓间距与无滚动
+PASS 139 1017x555 done 外轮廓间距与无滚动
+PASS 139 1017x555 error 外轮廓间距与无滚动
+PASS 139 1017x555 running 外轮廓间距与无滚动
+PASS 139 1017x555 paused 外轮廓间距与无滚动
+PASS 139 390x844 idle 外轮廓间距与无滚动
+PASS 139 390x844 done 外轮廓间距与无滚动
+PASS 139 390x844 error 外轮廓间距与无滚动
+PASS 139 390x844 running 外轮廓间距与无滚动
+PASS 139 390x844 paused 外轮廓间距与无滚动
+PASS 139 320x568 idle 外轮廓间距与无滚动
+PASS 139 320x568 done 外轮廓间距与无滚动
+PASS 139 320x568 error 外轮廓间距与无滚动
+PASS 139 320x568 running 外轮廓间距与无滚动
+PASS 139 320x568 paused 外轮廓间距与无滚动
+PASS 141 模拟键盘压缩视口后输入与说明仍可见
+PASS 140 减少动态首页仍可浏览进入
+PASS 142a 运行首页三段齐全
+PASS 142b 首页暂停原地冻结
+PASS 142c 首页继续原地推进
+PASS 142d 首页重置需确认且取消文字明确
+PASS 142d2 取消重置保持原轮
+PASS 142e 确认重置回待开始
+PASS 142f 到期瞬间首页暂停只结算完成
+PASS 142g 过期重置确认仅关闭不撤销完成
+PASS 142h 休息运行三段与结束休息命令
+PASS 142h2 休息暂停原地标签
+PASS 142h3 休息继续原地推进
+PASS 142i0 结束休息无需重置确认
+PASS 142i 休息重置回待开始不计进度
+PASS 142j 演示首页运行显示三段
+PASS 142j2 演示重置不碰正式且输入仍只读
+PASS 142k 焦点左中右与 Esc 不改计时
+PASS 142l 320 三段胶囊在视口内且命中区达标
+PASS 142l 390 三段胶囊在视口内且命中区达标
+PASS A1.1 累计 25 / 轮数 / 解锁差集
+PASS A1.1 首页到期反馈与立即可用主控件
+PASS A1.1 普通轮没有卡片
+PASS A1.1 开放集合一致
+PASS A1.1 常态剩余门槛
+PASS A1.2 累计 50 / 轮数 / 解锁差集
+PASS A1.2 首页到期反馈与立即可用主控件
+PASS A1.2 只提示新开放时代
+PASS A1.2 开放集合一致
+PASS A1.2 常态剩余门槛
+PASS A1.3 累计 75 / 轮数 / 解锁差集
+PASS A1.3 首页到期反馈与立即可用主控件
+PASS A1.3 普通轮没有卡片
+PASS A1.3 开放集合一致
+PASS A1.3 常态剩余门槛
+PASS A1.4 累计 100 / 轮数 / 解锁差集
+PASS A1.4 首页到期反馈与立即可用主控件
+PASS A1.4 只提示新开放时代
+PASS A1.4 开放集合一致
+PASS A1.4 常态剩余门槛
+PASS A1 四个独立 roundId / 总共两张卡
+PASS A2 49 最后一毫秒仍未开放
+PASS A2 50 恰到门槛开放
+PASS A2 99 最后一毫秒仍未开放
+PASS A2 100 恰到门槛开放
+PASS A2 49.5 不因舍入或轮数提前解锁
+PASS A2 49.5 场景节点/无障碍门禁
+PASS A2 49.5 进度条仅用已结算分钟
+PASS A2 49.5 锁定节点不能回看
+PASS A2 49.5 图鉴只列开放时代
+PASS A2 49.5 stone 图鉴可选且三卡
+PASS A2 49.5 环境音门禁含首页专属太空
+PASS A2 49.5 可选择 forest
+PASS A2 49.5 可选择 space
+PASS A2 49.5 业务层拒绝未开放环境音 field
+PASS A2 49.5 业务层拒绝未开放环境音 steam
+PASS A3 单轮 100 分钟只加一轮并保存最高时代
+PASS A3 合并卡标题/两份图鉴背景声音奖励
+PASS A3 合并场景反馈
+PASS A3 一次转场一次通知，不连续弹卡
+PASS A3 全奖励 场景节点/无障碍门禁
+PASS A3 全奖励 进度条仅用已结算分钟
+PASS A3 全奖励 锁定节点不能回看
+PASS A3 全奖励 图鉴只列开放时代
+PASS A3 全奖励 stone 图鉴可选且三卡
+PASS A3 全奖励 tang 图鉴可选且三卡
+PASS A3 全奖励 steam 图鉴可选且三卡
+PASS A3 全奖励 环境音门禁含首页专属太空
+PASS A3 全奖励 可选择 forest
+PASS A3 全奖励 可选择 field
+PASS A3 全奖励 可选择 steam
+PASS A3 全奖励 可选择 space
+PASS A3 背景与正式 100 分钟蒸汽背景一致
+PASS A4 第 1 个短轮未开放盛唐
+PASS A4 第 2 个短轮未开放盛唐
+PASS A4 刷新保留新档 floor / 2 分钟 / 2 轮
+PASS A4 刷新后 场景节点/无障碍门禁
+PASS A4 刷新后 进度条仅用已结算分钟
+PASS A4 刷新后 锁定节点不能回看
+PASS A4 刷新后 图鉴只列开放时代
+PASS A4 刷新后 stone 图鉴可选且三卡
+PASS A4 刷新后 环境音门禁含首页专属太空
+PASS A4 刷新后 可选择 forest
+PASS A4 刷新后 可选择 space
+PASS A4 刷新后 业务层拒绝未开放环境音 field
+PASS A4 刷新后 业务层拒绝未开放环境音 steam
+PASS A5 1 轮旧档加载 1 保留视图且无庆祝
+PASS A5 1 轮旧档加载 1 迁移不改设置/累计/原轮
+PASS A5 1 轮旧档保留开放节点而非虚增分钟
+PASS A5 1 轮旧档加载 2 保留视图且无庆祝
+PASS A5 1 轮旧档加载 2 迁移不改设置/累计/原轮
+PASS A5 1 轮旧档保留开放节点而非虚增分钟
+PASS A5 2 轮旧档加载 1 保留视图且无庆祝
+PASS A5 2 轮旧档加载 1 迁移不改设置/累计/原轮
+PASS A5 2 轮旧档保留开放节点而非虚增分钟
+PASS A5 2 轮旧档加载 2 保留视图且无庆祝
+PASS A5 2 轮旧档加载 2 迁移不改设置/累计/原轮
+PASS A5 2 轮旧档保留开放节点而非虚增分钟
+PASS A5 0 轮旧档加载 1 保留视图且无庆祝
+PASS A5 0 轮旧档加载 1 迁移不改设置/累计/原轮
+PASS A5 0 轮旧档保留开放节点而非虚增分钟
+PASS A5 0 轮旧档加载 2 保留视图且无庆祝
+PASS A5 0 轮旧档加载 2 迁移不改设置/累计/原轮
+PASS A5 0 轮旧档保留开放节点而非虚增分钟
+PASS A5 非法已有 floor null 不走轮数迁移
+PASS A5 未知 completion 安全读取且不弹卡发声
+PASS A5 非法已有 floor "" 不走轮数迁移
+PASS A5 未知 completion 安全读取且不弹卡发声
+PASS A5 非法已有 floor "future" 不走轮数迁移
+PASS A5 未知 completion 安全读取且不弹卡发声
+PASS A5 非法已有 floor 2 不走轮数迁移
+PASS A5 未知 completion 安全读取且不弹卡发声
+PASS A5 非法已有 floor {} 不走轮数迁移
+PASS A5 未知 completion 安全读取且不弹卡发声
+PASS A5 迁移保留运行 deadline/id/已结算 ID
+PASS A5 旧运行轮到期只结算一次
+PASS A6 reload 到期前累计不变
+PASS A6 reload 跨门槛只结算一次
+PASS A6 reload 已结算刷新保留开放不庆祝
+PASS A6 background 到期前累计不变
+PASS A6 background 跨门槛只结算一次
+PASS A6 background 已结算刷新保留开放不庆祝
+PASS A7 暂停重置确认取消文字
+PASS A7 取消后仍是同一暂停轮
+PASS A7 暂停/取消/导航/拖球/重置均不增累计或开放
+PASS A7 running 结束休息无需确认不加进度
+PASS A7 paused 结束休息无需确认不加进度
+PASS A8 正式到期先结算且原设置完整
+PASS A8 过期正式转场不能污染演示石器或弹卡
+PASS A8 演示第 1 轮按轮数开放
+PASS A8 演示第 2 轮按轮数开放
+PASS A8 演示常态使用轮数不使用正式分钟
+PASS A8 退出演示后过期反馈/回调不重放
+PASS A9 一次性失败保留 40 草稿和错误且没有新轮
+PASS A9 独立重试仅建一个 40 分钟轮
+PASS A10 一次性失败保留 40 草稿和错误且没有新轮
+PASS A10 独立重试仅建一个 40 分钟轮
+PASS A11 focus 静音反馈和立即可用主控件
+PASS A11 focus 只在专注到期累计
+PASS A11 focus 场景共享同一反馈
+PASS A11 focus 3999ms 往返仍可见
+PASS A11 focus 4000ms 恢复常态而非重置时长
+PASS A11 natural-break 静音反馈和立即可用主控件
+PASS A11 natural-break 只在专注到期累计
+PASS A11 natural-break 场景共享同一反馈
+PASS A11 natural-break 3999ms 往返仍可见
+PASS A11 natural-break 4000ms 恢复常态而非重置时长
+PASS A11 manual-break 静音反馈和立即可用主控件
+PASS A11 manual-break 只在专注到期累计
+PASS A11 manual-break 场景共享同一反馈
+PASS A11 manual-break 3999ms 往返仍可见
+PASS A11 manual-break 4000ms 恢复常态而非重置时长
+PASS A11 累计使用锁定的 25 分钟而非已改设置 40
+PASS A11 开始新轮立即清除上一轮反馈并使用新时长
+PASS A11 退出演示前反馈尚未过期
+PASS A11 退出演示立即清除所属演示的反馈
+PASS A11 退出演示后过期回调不能改画面/弹卡/重置文案
+PASS A12 音频已可播放
+PASS A12 自然休息到期恰好一组双音
+PASS A12 导航/重复 tick 不重响不加分钟轮数
+PASS A12 已结束休息刷新不补播
+PASS A12 开声音主动结束 running 也永不补音
+PASS A12 开声音主动结束 paused 也永不补音
+PASS A12 zero-volume 禁止提示音但不丢文字
+PASS A12 blocked 禁止提示音但不丢文字
+PASS A13 三种时代背景确实不同
+PASS A13 0 首页球体/主题/说明门禁
+PASS A13 0 背景使用同一开放集合
+PASS A13 0 场景节点/无障碍门禁
+PASS A13 0 进度条仅用已结算分钟
+PASS A13 0 锁定节点不能回看
+PASS A13 0 图鉴只列开放时代
+PASS A13 0 stone 图鉴可选且三卡
+PASS A13 0 环境音门禁含首页专属太空
+PASS A13 0 可选择 forest
+PASS A13 0 可选择 space
+PASS A13 0 业务层拒绝未开放环境音 field
+PASS A13 0 业务层拒绝未开放环境音 steam
+PASS A13 0 回看 stone 的场景/背景
+PASS A13 0 回看石器仍显示全局下一门槛
+PASS A13 0 首页回看同步全局目标
+PASS A13 49 首页球体/主题/说明门禁
+PASS A13 49 背景使用同一开放集合
+PASS A13 49 场景节点/无障碍门禁
+PASS A13 49 进度条仅用已结算分钟
+PASS A13 49 锁定节点不能回看
+PASS A13 49 图鉴只列开放时代
+PASS A13 49 stone 图鉴可选且三卡
+PASS A13 49 环境音门禁含首页专属太空
+PASS A13 49 可选择 forest
+PASS A13 49 可选择 space
+PASS A13 49 业务层拒绝未开放环境音 field
+PASS A13 49 业务层拒绝未开放环境音 steam
+PASS A13 49 回看 stone 的场景/背景
+PASS A13 49 回看石器仍显示全局下一门槛
+PASS A13 49 首页回看同步全局目标
+PASS A13 50 首页球体/主题/说明门禁
+PASS A13 50 背景使用同一开放集合
+PASS A13 50 场景节点/无障碍门禁
+PASS A13 50 进度条仅用已结算分钟
+PASS A13 50 锁定节点不能回看
+PASS A13 50 图鉴只列开放时代
+PASS A13 50 stone 图鉴可选且三卡
+PASS A13 50 tang 图鉴可选且三卡
+PASS A13 50 环境音门禁含首页专属太空
+PASS A13 50 可选择 forest
+PASS A13 50 可选择 field
+PASS A13 50 可选择 space
+PASS A13 50 业务层拒绝未开放环境音 steam
+PASS A13 50 回看 stone 的场景/背景
+PASS A13 50 回看 tang 的场景/背景
+PASS A13 50 回看石器仍显示全局下一门槛
+PASS A13 50 首页回看同步全局目标
+PASS A13 99 首页球体/主题/说明门禁
+PASS A13 99 背景使用同一开放集合
+PASS A13 99 场景节点/无障碍门禁
+PASS A13 99 进度条仅用已结算分钟
+PASS A13 99 锁定节点不能回看
+PASS A13 99 图鉴只列开放时代
+PASS A13 99 stone 图鉴可选且三卡
+PASS A13 99 tang 图鉴可选且三卡
+PASS A13 99 环境音门禁含首页专属太空
+PASS A13 99 可选择 forest
+PASS A13 99 可选择 field
+PASS A13 99 可选择 space
+PASS A13 99 业务层拒绝未开放环境音 steam
+PASS A13 99 回看 stone 的场景/背景
+PASS A13 99 回看 tang 的场景/背景
+PASS A13 99 回看石器仍显示全局下一门槛
+PASS A13 99 首页回看同步全局目标
+PASS A13 100 首页球体/主题/说明门禁
+PASS A13 100 背景使用同一开放集合
+PASS A13 100 场景节点/无障碍门禁
+PASS A13 100 进度条仅用已结算分钟
+PASS A13 100 锁定节点不能回看
+PASS A13 100 图鉴只列开放时代
+PASS A13 100 stone 图鉴可选且三卡
+PASS A13 100 tang 图鉴可选且三卡
+PASS A13 100 steam 图鉴可选且三卡
+PASS A13 100 环境音门禁含首页专属太空
+PASS A13 100 可选择 forest
+PASS A13 100 可选择 field
+PASS A13 100 可选择 steam
+PASS A13 100 可选择 space
+PASS A13 100 回看 stone 的场景/背景
+PASS A13 100 回看 tang 的场景/背景
+PASS A13 100 回看 steam 的场景/背景
+PASS A13 100 回看石器仍显示全局下一门槛
+PASS A13 100 首页回看同步全局目标
+PASS A13 全解锁回看石器 #home-start 入口仍可用
+PASS A13 全解锁回看可开始 #home-start
+PASS A13 全解锁回看石器 #home-break 入口仍可用
+PASS A13 全解锁回看可开始 #home-break
+PASS A14 1017x555 double-unlock 真实反馈
+PASS A14 1017x555 double-unlock 球体/说明/控件完整无滚动
+PASS A14 1017x555 save-error 真实反馈
+PASS A14 1017x555 save-error 球体/说明/控件完整无滚动
+PASS A14 1017x555 natural-break 真实反馈
+PASS A14 1017x555 natural-break 球体/说明/控件完整无滚动
+PASS A14 1017x555 manual-break 真实反馈
+PASS A14 1017x555 manual-break 球体/说明/控件完整无滚动
+PASS A14 320x568 double-unlock 真实反馈
+PASS A14 320x568 double-unlock 球体/说明/控件完整无滚动
+PASS A14 320x568 save-error 真实反馈
+PASS A14 320x568 save-error 球体/说明/控件完整无滚动
+PASS A14 320x568 natural-break 真实反馈
+PASS A14 320x568 natural-break 球体/说明/控件完整无滚动
+PASS A14 320x568 manual-break 真实反馈
+PASS A14 320x568 manual-break 球体/说明/控件完整无滚动
+PASS A6 entry 揭幕期间到期后同步地图/按钮/单次卡片
+PASS A6 browse 揭幕期间到期后同步地图/按钮/单次卡片
+PASS 42 WebGL 禁用显示降级按钮
+PASS 42b 降级按钮仅浏览保持待开始
+PASS 42c 降级场景内可开始计时
+PASS 42d 降级按钮位于说明上方留白内
+PASS 42e 空白点击不进入场景
+
+488 passed, 0 failed

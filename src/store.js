@@ -1,4 +1,5 @@
 import { createIdleRun } from './timer.js';
+import { ERA_ORDER, canEnterEra, highestUnlockedEra } from './eras.js';
 
 export const STORAGE_KEY = 'wmf:v1:formal';
 export const VERSION = 1;
@@ -9,12 +10,13 @@ export const DEFAULT_SETTINGS = Object.freeze({
 
 const STATUSES = new Set(['idle', 'running', 'paused', 'done']);
 const MODES = new Set(['focus', 'break']);
-const VIEW_ERAS = new Set(['stone', 'tang', 'steam']);
+const VIEW_ERAS = new Set(ERA_ORDER);
 
 function defaultProgress() {
   return {
     completedRounds: 0,
     focusMinutes: 0,
+    legacyEraFloor: 'stone',
     viewEra: 'stone',
     lastSettledRoundId: null
   };
@@ -46,9 +48,15 @@ function normalizeSettings(raw) {
 
 function normalizeCompletion(raw) {
   if (!raw || typeof raw !== 'object') return null;
+  const candidates = new Set([
+    raw.unlockedEra,
+    ...(Array.isArray(raw.unlockedEras) ? raw.unlockedEras : [])
+  ]);
+  const unlockedEras = ERA_ORDER.filter((id) => candidates.has(id));
   return {
-    unlockedEra: typeof raw.unlockedEra === 'string' ? raw.unlockedEra : null,
-    futureEra: typeof raw.futureEra === 'string' ? raw.futureEra : null,
+    unlockedEra: unlockedEras.at(-1) || null,
+    unlockedEras,
+    futureEra: VIEW_ERAS.has(raw.futureEra) ? raw.futureEra : null,
     at: typeof raw.at === 'number' && Number.isFinite(raw.at) ? raw.at : 0
   };
 }
@@ -111,19 +119,24 @@ function normalizeState(raw) {
     rawProgress.focusMinutes >= 0
       ? rawProgress.focusMinutes
       : 0;
-  let viewEra = VIEW_ERAS.has(rawProgress.viewEra) ? rawProgress.viewEra : 'stone';
-  if (viewEra === 'steam' && completedRounds < 2) viewEra = completedRounds >= 1 ? 'tang' : 'stone';
-  if (viewEra === 'tang' && completedRounds < 1) viewEra = 'stone';
+  // 只为缺少字段的旧正式档补发资格；非法现有字段不能再次触发迁移。
+  const legacyEraFloor = Object.hasOwn(rawProgress, 'legacyEraFloor')
+    ? (VIEW_ERAS.has(rawProgress.legacyEraFloor) ? rawProgress.legacyEraFloor : 'stone')
+    : highestUnlockedEra({ completedRounds }, true);
 
   const progress = {
     completedRounds,
     focusMinutes,
-    viewEra,
+    legacyEraFloor,
+    viewEra: rawProgress.viewEra,
     lastSettledRoundId:
       typeof rawProgress.lastSettledRoundId === 'string' && rawProgress.lastSettledRoundId
         ? rawProgress.lastSettledRoundId
         : null
   };
+  if (!canEnterEra(progress.viewEra, progress)) {
+    progress.viewEra = highestUnlockedEra(progress);
+  }
 
   return {
     version: VERSION,
@@ -154,6 +167,9 @@ export function loadState() {
 export function saveState(state) {
   state.updatedAt = Date.now();
   try {
+    state.progress.legacyEraFloor = VIEW_ERAS.has(state.progress.legacyEraFloor)
+      ? state.progress.legacyEraFloor
+      : 'stone';
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     return true;
   } catch {

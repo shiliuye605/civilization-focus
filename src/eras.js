@@ -12,6 +12,7 @@ export const ERAS = {
     subtitle: '石器时代的采集与劳作',
     eraLabel: '石器时代',
     tagline: '“火光照亮荒野，专注留下最初的痕迹。”',
+    unlockMinutes: 0,
     unlockRounds: 0,
     available: true,
     palette: {
@@ -70,6 +71,7 @@ export const ERAS = {
     subtitle: '唐朝的农耕与手工业',
     eraLabel: '唐朝',
     tagline: '“田畴沿河铺展，劳作连接村落。”',
+    unlockMinutes: 50,
     unlockRounds: 1,
     available: true,
     palette: {
@@ -134,6 +136,7 @@ export const ERAS = {
     subtitle: '英国工业革命的生产与交通',
     eraLabel: '英国工业革命',
     tagline: '“蒸汽驱动机器，轨道连接远方。”',
+    unlockMinutes: 100,
     unlockRounds: 2,
     available: true,
     mapLabel: '蒸汽城镇像素地图：厂房、烟囱、钟楼与铁路',
@@ -173,20 +176,39 @@ export function getEra(id) {
   return ERAS[id] || ERAS.stone;
 }
 
-export function unlockedLevel(completedRounds) {
-  if (completedRounds >= 2) return 3;
-  if (completedRounds >= 1) return 2;
-  return 1;
+export function unlockedEras(progress, demo = false) {
+  const minutes = Number.isFinite(progress?.focusMinutes)
+    ? Math.max(0, progress.focusMinutes)
+    : 0;
+  const rounds = Number.isInteger(progress?.completedRounds)
+    ? Math.max(0, progress.completedRounds)
+    : 0;
+  const floorIndex = Math.max(0, ERA_ORDER.indexOf(progress?.legacyEraFloor));
+
+  return ERA_ORDER.filter((id, index) => {
+    const era = ERAS[id];
+    if (!era.available) return false;
+    // 轮数只用于演示；正式旧档资格在加载时迁移一次。
+    return demo
+      ? rounds >= era.unlockRounds
+      : minutes >= era.unlockMinutes || index <= floorIndex;
+  });
 }
 
-export function isEraUnlocked(id, completedRounds) {
-  const era = ERAS[id];
-  if (!era) return false;
-  return era.unlockRounds <= completedRounds;
+export function highestUnlockedEra(progress, demo = false) {
+  return unlockedEras(progress, demo).at(-1) || 'stone';
 }
 
-export function canEnterEra(id, completedRounds) {
-  const era = ERAS[id];
-  if (!era || !era.available) return false;
-  return isEraUnlocked(id, completedRounds);
+export function nextLockedEra(progress, demo = false) {
+  const unlocked = unlockedEras(progress, demo);
+  const id = ERA_ORDER.find((id) => ERAS[id].available && !unlocked.includes(id));
+  return id ? ERAS[id] : null;
+}
+
+export function isEraUnlocked(id, progress, demo = false) {
+  return unlockedEras(progress, demo).includes(id);
+}
+
+export function canEnterEra(id, progress, demo = false) {
+  return isEraUnlocked(id, progress, demo);
 }

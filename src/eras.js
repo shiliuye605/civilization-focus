@@ -3,7 +3,7 @@ export const FORMAL_BREAK_MS = 5 * 60 * 1000;
 export const DEMO_FOCUS_MS = 15 * 1000;
 export const DEMO_BREAK_MS = 5 * 1000;
 
-export const ERA_ORDER = ['stone', 'tang', 'steam'];
+export const ERA_ORDER = ['stone', 'tang', 'steam', 'information'];
 
 export const ERAS = {
   stone: {
@@ -169,6 +169,18 @@ export const ERAS = {
         y: 86.1
       }
     ]
+  },
+
+  information: {
+    id: 'information',
+    name: '信息时代',
+    subtitle: '数字网络连接世界与星空',
+    eraLabel: '信息时代',
+    tagline: '“信息跨越山海，专注连接未来。”',
+    unlockMinutes: 150,
+    unlockRounds: 3,
+    available: true,
+    codex: []
   }
 };
 
@@ -193,6 +205,12 @@ export function unlockedEras(progress, demo = false) {
       ? rounds >= era.unlockRounds
       : minutes >= era.unlockMinutes || index <= floorIndex;
   });
+}
+
+// 旧档迁移固定使用原 0/1/2 轮门槛，不能随新增时代扩展。
+export function legacyUnlockedEra(completedRounds) {
+  if (completedRounds >= 2) return 'steam';
+  return completedRounds >= 1 ? 'tang' : 'stone';
 }
 
 export function highestUnlockedEra(progress, demo = false) {

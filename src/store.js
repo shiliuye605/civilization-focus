@@ -1,5 +1,5 @@
 import { createIdleRun } from './timer.js';
-import { ERA_ORDER, canEnterEra, highestUnlockedEra } from './eras.js';
+import { ERA_ORDER, canEnterEra, highestUnlockedEra, legacyUnlockedEra } from './eras.js';
 
 export const STORAGE_KEY = 'wmf:v1:formal';
 export const VERSION = 1;
@@ -122,7 +122,7 @@ function normalizeState(raw) {
   // 只为缺少字段的旧正式档补发资格；非法现有字段不能再次触发迁移。
   const legacyEraFloor = Object.hasOwn(rawProgress, 'legacyEraFloor')
     ? (VIEW_ERAS.has(rawProgress.legacyEraFloor) ? rawProgress.legacyEraFloor : 'stone')
-    : highestUnlockedEra({ completedRounds }, true);
+    : legacyUnlockedEra(completedRounds);
 
   const progress = {
     completedRounds,

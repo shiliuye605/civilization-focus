@@ -3,13 +3,16 @@
   "private": true,
   "version": "0.6.0",
   "type": "module",
-  "description": "文明专注：极简主题首页、Three.js 时代地球与直达番茄钟。V0.6 三时代人物精修",
+  "description": "时拓 TerraTock：宇宙时钟、四个时代与二十处微缩文明地点的番茄钟。",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview --port 4173 --strictPort",
     "start": "vite build && vite preview --port 4173 --strictPort --open",
-    "regression": "node tests/regression.mjs"
+    "regression": "node tests/regression.mjs",
+    "regression:clock": "node tests/clock-regression.mjs",
+    "regression:civilizations": "node tests/civilizations-regression.mjs",
+    "regression:locations": "node tests/locations-regression.mjs"
   },
   "devDependencies": {
     "ffmpeg-static": "^5.3.0",

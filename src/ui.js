@@ -14,8 +14,22 @@ export function createUI() {
   const els = {
     home: $('home'),
     scene: $('scene'),
-    globeCanvas: $('globe-canvas'),
-    globeFallback: $('globe-fallback'),
+    dialCanvas: $('dial-canvas'),
+    dialFallback: $('dial-fallback'),
+    homeTop: $('home-top'),
+    homeLogo: $('home-logo'),
+    dialBar: $('dial-bar'),
+    dialViewBtn: $('dial-view-btn'),
+    dialSession: $('dial-session'),
+    dialStatus: $('dial-status'),
+    dialCount: $('dial-count'),
+    homeEras: $('home-eras'),
+    sceneSelect: $('scene-select'),
+    placeName: $('place-name'),
+    lifeNext: $('life-next'),
+    civilizationEntry: $('civilization-entry'),
+    civilizationStatus: $('civilization-status'),
+    civilizationRetry: $('civilization-retry'),
     clock: $('clock'),
     settingsBtn: $('settings-btn'),
     homeDock: $('home-dock'),
@@ -96,6 +110,8 @@ export function createUI() {
     onSoundEnabled: () => {},
     onSoundSelect: () => {},
     onSoundVolume: () => {},
+    onHomeEra: () => {},
+    onHomeScene: () => {},
     onHomeStart: () => {},
     onHomeBreak: () => {},
     onHomeInput: () => {},
@@ -115,10 +131,13 @@ export function createUI() {
       handlers.onAction(actionEl.dataset.action, actionEl);
       return;
     }
+    const eraEl = event.target.closest('[data-home-era]');
+    if (eraEl && !eraEl.disabled) handlers.onHomeEra(eraEl.dataset.homeEra);
     const nodeEl = event.target.closest('[data-node]');
     if (nodeEl && !nodeEl.disabled) handlers.onNode(nodeEl.dataset.node);
   });
 
+  els.sceneSelect.addEventListener('change', () => handlers.onHomeScene(els.sceneSelect.value));
   els.settingsBtn.addEventListener('click', () => handlers.onSettingsOpen());
   els.settingsForm.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -197,6 +216,7 @@ export function createUI() {
   const STORAGE_TEXT = {
     'progress-save': '当前浏览器无法保存进度，本次内容可能在关闭页面后丢失。',
     'audio-save': '声音偏好无法保存，刷新后声音设置会回到默认。',
+    'places-save': '地点记忆无法保存，刷新后将使用默认地点；专注记录不受影响。',
     'load-recovered': '存档读取异常，已恢复可用的初始进度。',
     'audio-recovered': '声音偏好读取异常，已恢复默认声音设置。',
     'storage-unavailable': '浏览器存储不可用，本次进度与声音设置可能无法保存。'
@@ -249,7 +269,58 @@ export function createUI() {
     document.body.dataset.view = view;
   }
 
+  function setDialView(near) {
+    document.body.dataset.dial = near ? 'near' : 'far';
+    els.dialViewBtn.textContent = near ? '返回全景' : '近看指针';
+    els.dialViewBtn.setAttribute('aria-pressed', String(near));
+    els.dialCanvas.setAttribute('aria-pressed', String(near));
+    els.dialCanvas.setAttribute('aria-label', near ? '宇宙时钟：正在随指针观察，按回车返回全景' : '宇宙时钟：点击近看指针');
+  }
+
+  function setHomeEras(eras, current) {
+    for (const era of eras) {
+      let button = els.homeEras.querySelector(`[data-home-era="${era.id}"]`);
+      if (!button) {
+        button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.homeEra = era.id;
+        button.textContent = era.name;
+        els.homeEras.appendChild(button);
+      }
+      button.disabled = !era.unlocked;
+      button.setAttribute('aria-pressed', String(era.id === current));
+      button.title = era.unlocked ? `查看${era.name}` : era.requirement;
+      button.setAttribute('aria-label', era.unlocked ? era.name : `${era.name} · ${era.requirement}`);
+    }
+  }
+
+  function setLocations(scenes, selected) {
+    const key = scenes.map((scene) => scene.id).join('|');
+    if (els.sceneSelect.dataset.options !== key) {
+      els.sceneSelect.replaceChildren(...scenes.map((scene) => new Option(`${scene.label} · ${scene.region}`, scene.id)));
+      els.sceneSelect.dataset.options = key;
+    }
+    els.sceneSelect.value = selected;
+  }
+
+  function setPlaceInfo(scene) {
+    els.placeName.textContent = scene ? `${scene.label} · ${scene.region}` : '正在准备地点';
+    els.placeName.title = scene?.description || '';
+  }
+
+  function setCivilizationStatus(state, name) {
+    const loading = state.status === 'loading';
+    const failed = state.status === 'error';
+    els.civilizationStatus.hidden = !loading && !failed;
+    els.civilizationStatus.textContent = loading ? `正在加载${name}…` : failed
+      ? `${name}加载失败${state.era ? '，暂时保留原文明' : '，计时仍可使用'}` : '';
+    els.civilizationRetry.hidden = !failed;
+  }
+
   function renderHome(vm) {
+    els.dialSession.hidden = !vm.count;
+    if (els.dialCount.textContent !== (vm.count || '')) els.dialCount.textContent = vm.count || '';
+    if (els.dialStatus.textContent !== (vm.statusLabel || '')) els.dialStatus.textContent = vm.statusLabel || '';
     if (els.eraCaption.textContent !== vm.caption) els.eraCaption.textContent = vm.caption;
     if (els.homeStart.textContent !== vm.buttonLabel) els.homeStart.textContent = vm.buttonLabel;
     els.homeControl.dataset.state = vm.state;
@@ -606,6 +677,11 @@ export function createUI() {
     els,
     bind,
     showView,
+    setDialView,
+    setHomeEras,
+    setLocations,
+    setPlaceInfo,
+    setCivilizationStatus,
     renderHome,
     getHomeMinutes,
     setHomeMinutesValue,

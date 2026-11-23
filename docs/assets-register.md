@@ -1,6 +1,12 @@
-# 素材登记册 · V0.6
+# 素材登记册
 
 每条素材与代码注册表 / 仓库文件一一对应。许可文本随项目保存于 `src/assets/` 对应目录。
+
+## 宇宙时钟与微缩文明
+
+- `src/assets/models/terratock-clock.glb` 是时拓的宇宙时钟模型，含表盘、计时指针及文明挂载点 `CivilizationMount`。
+- `src/assets/models/` 中另有 20 个由 Codex 辅助制作的原创微缩文明 GLB。地点、区域、模型文件与地理灵感来源登记在 [地点目录](../src/scene-catalog.mjs)。信息时代有 5 处地点。
+- `src/assets/brand/terratock-logo.webp` 是时拓首页使用的品牌图。
 
 ## 字体
 

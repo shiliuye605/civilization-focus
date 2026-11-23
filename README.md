@@ -1,14 +1,17 @@
-# 文明专注 · V0.11 累计分钟解锁与计时反馈
+# 时拓 TerraTock · 文明专注
 
-功能版本为 V0.11；`package.json` 包版本保留 **0.6.0**。本轮构建通过，系统 Chrome 完整回归 **488 项通过、0 失败**；验证环境、截图和未验证项见 [docs/verification.md](docs/verification.md) V0.11 节，下方历史记录不替代本轮结果。
+时拓是一款带微缩文明的番茄钟。点击首页宇宙时钟可以近看指针，按「开始专注」才开始计时。镜头跟着指针移动，指针上的居民按各地的生活日程劳作、交谈和休息。
 
-> 点击地球，浏览你的文明场景；在首页输入时长、一键开始一轮安静的学习；每完成一轮，文明与奖赏一同生长。
+- 默认专注 25 分钟、休息 5 分钟，可在设置中调整。石器时代初始开放，累计完成 50、100、150 分钟分别开放农业、工业、信息时代。
+- 在首页先选时代，再选地点。四个时代共有 20 处地点，已开放时代的地点可自由切换。每个时代分别记住上次选择，地点切换和「下一生活时段」都独立于专注进度。
+- 地点切换使用翻页转场，开启系统「减少动态效果」时直接切换。真实地名是原创微缩景观的创作灵感。
+- 「文明场景」入口通向前三个时代的经典像素场景。信息时代的五处地点在时钟指针上浏览。
 
-面向大学生自习场景的番茄钟。首页只保留本地时间、设置按钮、一颗可交互的体素地球与底部主控件；点击地球**只浏览**——拉近镜头并像素转场进入当前文明的像素场景，是否开始计时由用户显式决定（首页主控件或场景内「开始专注」）。正式累计已完成专注 **50 分钟**解锁盛唐田园、**100 分钟**开放蒸汽城镇（默认 25 分钟时为第 2 / 4 轮完成）；场景、地球、时钟字体、首页背景同步演进，并解锁图鉴、环境音等奖赏。
+![宇宙时钟全景](docs/screenshots/clock-desktop-panorama.png)
 
-![石器时代首页](docs/screenshots/home-stone.png)
+[周口店洞穴](docs/screenshots/location-zhoukoudian-1440.png) · [尼罗河渠村](docs/screenshots/location-nile-1440.png) · [鲁尔矿区](docs/screenshots/location-ruhr-1440.png) · [深圳华强北](docs/screenshots/location-shenzhen-1440.png)
 
-## 本轮功能（V0.11）
+## V0.11 完成回顾（累计分钟解锁与计时反馈）
 
 - **按真实完成分钟解锁**：石器初始开放；仅正式专注到期结算时按该轮锁定的 `run.durationMs` 增加 `progress.focusMinutes`。运行中的时间、暂停、重置、休息与演示不计入正式累计，`completedRounds` 仅保留统计与旧档迁移用途。门槛按真实值比较，不因显示舍入提前开放；单轮 100 分钟可同时开放两时代，切到蒸汽并合并通知一次。
 - **统一门禁与进度**：首页、场景节点、图鉴、背景和可选环境音共享开放集合。剩余分钟指向全局下一个尚未开放时代，回看旧时代不改变资格；全部开放后仍显示真实累计并可编辑开始下一轮、使用完成态休息入口。场景进度条只按已结算正式分钟推进，50 / 100 分钟为中间 / 终点，未完成轮只由倒计时表达。
@@ -89,8 +92,8 @@
 环境：Node.js ≥ 20.19（实测 24.x）。
 
 - Windows 双击 **`启动.bat`**：检查依赖 → 构建 → 预览 → 自动开浏览器。
-- 命令行：`npm ci && npm start`（或 `npm run dev` / `build` / `preview`）。
-- 回归：`npm run preview` 后另开终端 `npm run regression`（Playwright + 系统 Chrome，默认打 `http://localhost:4173`，可用 `VERIFY_URL` 覆盖）。
+- 命令行先运行 `npm ci --ignore-scripts`，再运行 `npm start`。开发时可运行 `npm run dev`。
+- 完整回归使用 `npm run preview` 和 `npm run regression`，默认访问 `http://localhost:4173`。时钟、文明与地点专项使用 `npm run dev`，分别运行 `npm run regression:clock`、`npm run regression:civilizations` 和 `npm run regression:locations`。浏览器测试使用 Playwright 和系统 Chrome，可通过 `CHROME_PATH` 指定 Chrome 路径。
 
 ## 目录结构
 
@@ -100,7 +103,9 @@ index.html               首页 / 场景 HUD / 转场画布 / 设置·确认·�
 src/
   main.js                入口
   app.js                 视图与转场编排、计时结算、设置、主题同步、奖赏接线
-  globe.js               Three.js 体素地球、地形/植被/建筑、缩放转场 API
+  dial.js                Three.js 宇宙时钟、指针动画与跟随镜头
+  civilizations.js       GLB 挂载、人物日程与翻页转场
+  scene-catalog.mjs       四时代二十个地点及创作来源
   scene.js               1280×720 像素场景（三时代）与动态层、热点坐标、切片裁切
   characters.js          角色精灵配置（格尺寸/锚点/动作/姿势复用/镜像/握点）
   ui.js                  HUD/进度/热点/弹窗渲染 + 像素溶解转场 (createFx)
@@ -183,7 +188,6 @@ DESIGN.md / requirements.md
 - Firefox / Safari / iPhone / Android / Edge 真机；字体在其他内核的渲染差异。
 - 真机拖拽手感、横屏、浏览器缩放。
 - 公网发布与无痕验收：用户决定本轮仅本地交付，未执行（2026-11-19）；手动主题切换入口（本轮不做）。
-- 版本提交：用户决定暂不提交，V0.5/V0.6 改动保留在工作区（2026-11-19 / 2026-11-20）。
 - 人工盲评：V0.6 时代识别盲测由未接触设计稿的新 AI 会话执行（3/3），人工评审待补。
 
 ## 发布到 Qoder Sites（后续可选，本轮未执行）

@@ -3,9 +3,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import zlib from 'node:zlib';
+import { ERAS as HOME_ERAS, SCENES, SCENES_BY_ERA } from '../src/scene-catalog.mjs';
 
 const CHROME = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const URL = process.env.VERIFY_URL || 'http://localhost:4173/';
+// cx/cy 四舍五入、rx/ry 向上取整，单边投影读数最多比真实轮廓外扩 1.5px。
+const DIAL_PROJECTION_EPSILON = 1.5;
 
 let pass = 0;
 let fail = 0;
@@ -81,27 +84,46 @@ async function newPage(browser, seed, opts = {}) {
   if (opts.route) await page.route(opts.route.pattern, opts.route.handler);
   if (opts.routes) for (const r of opts.routes) await page.route(r.pattern, r.handler);
   await page.goto(URL);
-  await page.waitForSelector('body[data-app-ready="true"]');
+  await waitForHomeReady(page);
   return page;
 }
 
-async function globeCenter(page) {
-  const globe = page.locator('#globe-canvas');
-  if (await globe.isVisible()) {
+async function waitForHomeReady(page) {
+  await page.waitForSelector('body[data-app-ready="true"]');
+  // app-ready 早于异步 GLB 加载；几何采样必须等模型或可见降级入口就绪。
+  await page.waitForFunction(() => {
+    const visible = (el) => el && !el.hidden && getComputedStyle(el).visibility !== 'hidden' && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;
+    const dial = document.getElementById('dial-canvas');
+    return (visible(dial) && dial.dataset.ready === 'true' && ['cx', 'cy', 'rx', 'ry'].every((key) => Number.isFinite(Number(dial.dataset[key]))) && +dial.dataset.rx > 0 && +dial.dataset.ry > 0) || visible(document.getElementById('dial-fallback'));
+  });
+  await page.waitForFunction(() => document.getElementById('home-dock').getAnimations().every((animation) => animation.playState === 'finished'));
+}
+
+async function waitForHomeNear(page) {
+  await page.waitForSelector('body[data-view="home"][data-dial="near"]');
+  await page.waitForSelector('#civilization-entry', { state: 'visible' });
+}
+
+async function dialCenter(page) {
+  await waitForHomeReady(page);
+  if (await page.locator('#dial-canvas').isVisible()) {
     return page.evaluate(() => {
-      const c = document.getElementById('globe-canvas');
+      const c = document.getElementById('dial-canvas');
       return { x: +c.dataset.cx, y: +c.dataset.cy };
     });
   }
-  const b = await page.locator('#globe-fallback').boundingBox();
+  const b = await page.locator('#dial-fallback').boundingBox();
   return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
 }
 
 async function browseScene(page) {
-  const c = await globeCenter(page);
-  await page.mouse.click(c.x, c.y);
-  await page.waitForSelector('body[data-view="scene"]');
-  await page.waitForTimeout(2100);
+  // 近看时钟不是文明导航；已在场景时不能再点击首页 canvas。
+  if ((await page.getAttribute('body', 'data-view')) !== 'scene') {
+    await page.click('#civilization-entry');
+    await page.waitForSelector('body[data-view="scene"]');
+    await page.waitForTimeout(2100);
+  }
+  await page.waitForFunction(() => !document.body.classList.contains('is-zooming') && !document.getElementById('fx-canvas').classList.contains('is-active'));
 }
 
 async function enterScene(page) {
@@ -133,10 +155,14 @@ const browser = await chromium.launch({ executablePath: CHROME, headless: true }
     const vis = (el) => el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().width > 0;
     const ctrl = document.getElementById('home-control').getBoundingClientRect();
     return {
-      globe: vis(document.getElementById('globe-canvas')),
+      dial: vis(document.getElementById('dial-canvas')),
+      dialLabel: document.getElementById('dial-canvas').getAttribute('aria-label'),
+      dialView: document.body.dataset.dial,
+      viewBtn: vis(document.getElementById('dial-view-btn')),
+      civilizationEntry: vis(document.getElementById('civilization-entry')),
       clock: vis(document.getElementById('clock')),
       settings: vis(document.getElementById('settings-btn')),
-      fallbackHidden: document.getElementById('globe-fallback').hidden,
+      fallbackHidden: document.getElementById('dial-fallback').hidden,
       caption: vis(document.getElementById('era-caption')),
       control: vis(document.getElementById('home-control')),
       startBtn: vis(document.getElementById('home-start')),
@@ -149,18 +175,29 @@ const browser = await chromium.launch({ executablePath: CHROME, headless: true }
       innerW: window.innerWidth,
       innerH: window.innerHeight,
       clockText: document.getElementById('clock').textContent,
-      globeOuterBottom: +document.getElementById('globe-canvas').dataset.cy + +document.getElementById('globe-canvas').dataset.outer,
+      dialBottom: +document.getElementById('dial-canvas').dataset.cy + +document.getElementById('dial-canvas').dataset.ry,
       capTop: document.getElementById('era-caption').getBoundingClientRect().top,
       capBottom: document.getElementById('era-caption').getBoundingClientRect().bottom,
       ctrlTop: document.getElementById('home-control').getBoundingClientRect().top
     };
   });
-  ok('01 首页元素齐全且无滚动', home.globe && home.clock && home.settings && home.fallbackHidden && home.caption && home.control && home.startBtn && home.minutesInput && home.ctrlInVp && home.dockPE === 'none' && home.ctrlPE === 'auto' && home.scrollW <= home.innerW && home.scrollH <= home.innerH, JSON.stringify(home));
-  ok('01b 球体外轮廓与说明间距≥24 说明与控件 10-14', home.capTop - home.globeOuterBottom >= 24 && home.ctrlTop - home.capBottom >= 10 && home.ctrlTop - home.capBottom <= 14, JSON.stringify({ gap: home.capTop - home.globeOuterBottom, capCtrl: home.ctrlTop - home.capBottom }));
+  ok('01 首页元素齐全且无滚动', home.dial && home.clock && home.settings && home.fallbackHidden && home.caption && home.control && home.startBtn && home.minutesInput && home.viewBtn && home.civilizationEntry && home.ctrlInVp && home.dockPE === 'none' && home.ctrlPE === 'auto' && home.scrollW <= home.innerW && home.scrollH <= home.innerH, JSON.stringify(home));
+  ok('01b 时钟全景投影与说明间距≥24 说明与控件 10-14', home.capTop - home.dialBottom + DIAL_PROJECTION_EPSILON >= 24 && home.ctrlTop - home.capBottom >= 10 && home.ctrlTop - home.capBottom <= 14, JSON.stringify({ gap: home.capTop - home.dialBottom, capCtrl: home.ctrlTop - home.capBottom }));
+  ok('01c 首页为宇宙时钟全景', home.dialView === 'far' && home.dialLabel.includes('宇宙时钟'), JSON.stringify(home));
   ok('02 时钟 HH:mm 24h', /^\d{2}:\d{2}$/.test(home.clockText), home.clockText);
+  const initialRun = (await state(page)).run;
+  const center = await dialCenter(page);
+  await page.mouse.click(center.x, center.y);
+  await waitForHomeNear(page);
+  ok('02b 点击时钟只近看不进文明或开始计时', JSON.stringify((await state(page)).run) === JSON.stringify(initialRun) && (await page.locator('#scene').isHidden()) && (await page.locator('#civilization-entry').isVisible()));
+  for (const view of ['far', 'near', 'far']) {
+    await page.click('#dial-view-btn');
+    await page.waitForSelector(`body[data-view="home"][data-dial="${view}"]`);
+    ok(`02c 视角按钮切换 ${view} 不改计时且文明入口可见`, JSON.stringify((await state(page)).run) === JSON.stringify(initialRun) && (await page.locator('#civilization-entry').isVisible()) && (await page.getAttribute('#dial-canvas', 'aria-label')).includes('宇宙时钟'));
+  }
   await browseScene(page);
   let s = await state(page);
-  ok('03 浏览地球进入场景保持待开始', s.run.status === 'idle' && s.run.roundId === null && (await page.textContent('#plaque-status')) === '— 待开始 —', JSON.stringify(s.run));
+  ok('03 独立文明入口进入场景保持待开始', s.run.status === 'idle' && s.run.roundId === null && (await page.textContent('#plaque-status')) === '— 待开始 —', JSON.stringify(s.run));
   await page.click('[data-action="start"]');
   s = await state(page);
   ok('03b 场景内开始才进入 running', s.run.status === 'running' && (await page.textContent('#plaque-status')) === '— 专注中 —');
@@ -267,7 +304,7 @@ const browser = await chromium.launch({ executablePath: CHROME, headless: true }
   const s = await state(page);
   ok('17 非解锁轮不弹卡', s.progress.completedRounds === 3 && s.run.completion.unlockedEra === null && (await page.locator('#unlock-dialog[open]').count()) === 0);
   await page.reload();
-  await page.waitForSelector('body[data-app-ready="true"]');
+  await waitForHomeReady(page);
   await enterScene(page);
   ok('18 刷新后不重复弹卡', (await page.locator('#unlock-dialog[open]').count()) === 0 && (await page.textContent('#plaque-status')) === '— 本轮完成 —', await page.textContent('#plaque-status'));
   await page.close();
@@ -279,14 +316,14 @@ const browser = await chromium.launch({ executablePath: CHROME, headless: true }
   await enterScene(page);
   const rid = (await state(page)).run.roundId;
   await page.reload();
-  await page.waitForSelector('body[data-app-ready="true"]');
+  await waitForHomeReady(page);
   ok('19 运行中刷新回首页', (await page.evaluate(() => document.body.dataset.view)) === 'home');
   await enterScene(page);
   ok('19b 恢复同一 running 轮', (await state(page)).run.roundId === rid && (await state(page)).run.status === 'running', JSON.stringify((await state(page)).run));
   await page.click('[data-action="pause"]');
   const digits = await page.textContent('#plaque-count');
   await page.reload();
-  await page.waitForSelector('body[data-app-ready="true"]');
+  await waitForHomeReady(page);
   await enterScene(page);
   ok('20 暂停刷新保持 paused 与数字', (await state(page)).run.status === 'paused' && (await page.textContent('#plaque-count')) === digits, `${(await state(page)).run.status} ${await page.textContent('#plaque-count')} vs ${digits}`);
   await page.close();
@@ -327,10 +364,13 @@ const browser = await chromium.launch({ executablePath: CHROME, headless: true }
     fetches: performance.getEntriesByType('resource').filter((r) => /\.(ogg|m4a)$/.test(r.name)).length
   }));
   ok('22c 首次默认开启且被拒时首页可见状态', freshBoot.enabled === true && freshBoot.blocked && freshBoot.label.includes('再次尝试') && freshBoot.fetches === 0, JSON.stringify(freshBoot));
-  const fc = await globeCenter(fresh);
+  const fc = await dialCenter(fresh);
   await fresh.mouse.click(fc.x, fc.y);
-  await fresh.waitForSelector('body[data-view="scene"]');
-  await fresh.waitForTimeout(2400);
+  await waitForHomeNear(fresh);
+  await fresh.waitForTimeout(900);
+  ok('22c1 点击时钟留在首页也恢复太空音', (await audioFetches(fresh)).includes('space.ogg') && (await state(fresh)).run.status === 'idle');
+  await browseScene(fresh);
+  await fresh.waitForTimeout(900);
   ok('22c2 任意点击自动开始播放', (await fresh.evaluate(() => document.getElementById('sound-btn').getAttribute('aria-label'))) === '静音' && (await audioFetches(fresh)).includes('forest.ogg'), JSON.stringify(await audioFetches(fresh)));
   await fresh.close();
 
@@ -356,7 +396,7 @@ const browser = await chromium.launch({ executablePath: CHROME, headless: true }
   ok('25 拖音量取消静音并保存', (await prefs(page23)).muted === false && (await prefs(page23)).volume === 0.3);
   await page23.keyboard.press('Escape');
   await page23.reload();
-  await page23.waitForSelector('body[data-app-ready="true"]');
+  await waitForHomeReady(page23);
   await page23.waitForTimeout(800);
   ok('26 刷新自动尝试播放被拒时无请求且可见', (await audioFetches(page23)).length === 0 && (await page23.evaluate(() => document.getElementById('home-sound-btn').getAttribute('aria-label'))).includes('再次尝试'), JSON.stringify(await audioFetches(page23)));
   await enterScene(page23);
@@ -382,10 +422,13 @@ const browser = await chromium.launch({ executablePath: CHROME, headless: true }
   }));
   ok('26d 自动播放被拒时首页可见状态且无请求', bpBoot.fetches === 0 && bpBoot.blocked && bpBoot.label.includes('再次尝试'), JSON.stringify(bpBoot));
   await bp.evaluate(() => { window.__block = false; });
-  const bc = await globeCenter(bp);
+  const bc = await dialCenter(bp);
   await bp.mouse.click(bc.x, bc.y);
-  await bp.waitForSelector('body[data-view="scene"]');
-  await bp.waitForTimeout(2400);
+  await waitForHomeNear(bp);
+  await bp.waitForTimeout(900);
+  ok('26d1 点击时钟在首页恢复播放不开始计时', (await audioFetches(bp)).includes('space.ogg') && (await state(bp)).run.status === 'idle');
+  await browseScene(bp);
+  await bp.waitForTimeout(900);
   ok('26d2 任意点击自动恢复不碰声音控件', (await bp.evaluate(() => document.getElementById('sound-btn').getAttribute('aria-label'))) === '静音' && (await audioFetches(bp)).includes('forest.ogg'), JSON.stringify(await audioFetches(bp)));
   await bp.close();
 
@@ -608,6 +651,16 @@ const browser = await chromium.launch({ executablePath: CHROME, headless: true }
   const p0 = fs.statSync(path.join(audioDir, 'forest.ogg')).size + fs.statSync(path.join(audioDir, 'forest.m4a')).size;
   const maxFile = Math.max(...files.map((f) => fs.statSync(path.join(audioDir, f)).size));
   ok('44 资源预算 场景≤4MB P0≤1.5MB 单音频≤500KB', scenes <= 4 * 1024 * 1024 && p0 <= 1.5 * 1024 * 1024 && maxFile <= 500 * 1024, `scenes=${scenes} p0=${p0} max=${maxFile}`);
+  // 仅为新增的约 1MB GLB 与 48KB logo 单列增量，不放宽旧资源或帧性能预算。
+  const model = fs.statSync(path.resolve('src/assets/models/terratock-clock.glb')).size;
+  const logo = fs.statSync(path.resolve('src/assets/brand/terratock-logo.webp')).size;
+  ok('44b 宇宙时钟增量预算 模型≤1.05MB logo≤48KB', model > 0 && model <= 1.05 * 1024 * 1024 && logo > 0 && logo <= 48 * 1024, `model=${model} logo=${logo} added=${model + logo}`);
+  // 实测新版目录 20 个地点共 26,527,880 B，最大 information 为 2,578,744 B。
+  // 独立固定增量上限，不把新模型并入或放宽旧像素场景/时钟/音频预算。
+  const catalogSizes = Object.values(SCENES).map(({ file }) => fs.statSync(new globalThis.URL(`../src/assets/models/${file}`, import.meta.url)).size);
+  const catalogTotal = catalogSizes.reduce((sum, size) => sum + size, 0);
+  const catalogMax = Math.max(...catalogSizes);
+  ok('44c 地点 GLB 增量预算 合计≤25.3MB 单文件≤2.46MB', catalogSizes.length === 20 && catalogSizes.every((size) => size > 0) && catalogTotal <= 25.3 * 1024 * 1024 && catalogMax <= 2.46 * 1024 * 1024, `catalog=${catalogTotal} max=${catalogMax}`);
 }
 
 /* ---------- 移动端 ---------- */
@@ -632,11 +685,22 @@ for (const [w, h] of [[320, 568], [390, 844]]) {
 /* ---------- 键盘 ---------- */
 {
   const page = await newPage(browser, baseSeed());
-  await page.focus('#globe-canvas');
+  await page.focus('#dial-canvas');
+  await page.keyboard.press('Enter');
+  await waitForHomeNear(page);
+  ok('50a 时钟键盘 Enter 只近看不开始', (await state(page)).run.status === 'idle' && (await state(page)).run.roundId === null);
+  await page.focus('#dial-view-btn');
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('body[data-view="home"][data-dial="far"]');
+  await page.focus('#dial-canvas');
+  await page.keyboard.press('Space');
+  await waitForHomeNear(page);
+  ok('50b 时钟键盘 Space 只近看且文明入口独立', (await state(page)).run.status === 'idle' && (await page.locator('#civilization-entry').isVisible()));
+  await page.focus('#civilization-entry');
   await page.keyboard.press('Enter');
   await page.waitForSelector('body[data-view="scene"]');
-  await page.waitForTimeout(2100);
-  ok('50 键盘 Enter 仅浏览不开始', (await state(page)).run.status === 'idle' && (await page.textContent('#plaque-status')) === '— 待开始 —');
+  await browseScene(page);
+  ok('50 文明入口键盘 Enter 仅浏览不开始', (await state(page)).run.status === 'idle' && (await page.textContent('#plaque-status')) === '— 待开始 —');
   await page.click('[data-action="start"]');
   await page.click('[data-action="reset"]');
   await page.keyboard.press('Escape');
@@ -917,7 +981,7 @@ for (const [w, h, era, rounds] of [[390, 844, 'stone', 0], [320, 568, 'steam', 2
   await page.waitForSelector('#unlock-dialog[open]');
   const before = await state(page);
   await page.reload();
-  await page.waitForSelector('body[data-app-ready="true"]');
+  await waitForHomeReady(page);
   const after = await state(page);
   await enterScene(page);
   const post = await page.evaluate(() => ({
@@ -1030,7 +1094,7 @@ async function m2EnterDemo(page) {
   await page.evaluate(() => window.__advance(16000));
   await page.waitForTimeout(400);
   await page.reload();
-  await page.waitForSelector('body[data-app-ready="true"]');
+  await waitForHomeReady(page);
   const after = await state(page);
   const uiState = await page.evaluate(() => ({
     demo: document.body.dataset.demo,
@@ -1425,7 +1489,7 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
   const after = await page.evaluate(() => ({ view: document.body.dataset.view, value: document.getElementById('home-minutes').value, button: document.getElementById('home-start').textContent }));
   ok('122 输入 40 Enter 仅保存停留首页', s.settings.focusMinutes === 40 && s.run.status === 'idle' && after.view === 'home' && after.value === '40' && after.button === '开始专注', JSON.stringify({ f: s.settings.focusMinutes, ...after }));
   await page.reload();
-  await page.waitForSelector('body[data-app-ready="true"]');
+  await waitForHomeReady(page);
   ok('122b 刷新后设置与首页均 40', (await state(page)).settings.focusMinutes === 40 && (await page.inputValue('#home-minutes')) === '40');
   await page.close();
 }
@@ -1434,7 +1498,7 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
   const page = await newPage(browser, baseSeed());
   await page.fill('#home-minutes', '40');
   await page.click('#home-start');
-  await page.waitForSelector('body[data-view="scene"]');
+  await waitForHomeNear(page);
   let s = await state(page);
   ok('123a 输入 40 点按钮按 40 分钟开始', s.run.status === 'running' && s.run.durationMs === 2400000 && s.settings.focusMinutes === 40, JSON.stringify({ d: s.run.durationMs, f: s.settings.focusMinutes }));
   await page.close();
@@ -1443,7 +1507,7 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
   await p2.fill('#home-minutes', '40');
   await browseScene(p2);
   s = await state(p2);
-  ok('123b 输入 40 点地球仅浏览且失焦保存 40', s.run.status === 'idle' && s.run.roundId === null && s.settings.focusMinutes === 40, JSON.stringify({ st: s.run.status, f: s.settings.focusMinutes }));
+  ok('123b 输入 40 点文明入口仅浏览且失焦保存 40', s.run.status === 'idle' && s.run.roundId === null && s.settings.focusMinutes === 40, JSON.stringify({ st: s.run.status, f: s.settings.focusMinutes }));
   await p2.click('[data-action="start"]');
   s = await state(p2);
   ok('123c 浏览后场景内开始按保存值 40 分钟', s.run.status === 'running' && s.run.durationMs === 2400000, String(s.run.durationMs));
@@ -1459,7 +1523,7 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
   let v = await page.inputValue('#home-minutes');
   ok('124a 设置 30 首页立即 30', v === '30' && (await state(page)).settings.focusMinutes === 30, v);
   await page.reload();
-  await page.waitForSelector('body[data-app-ready="true"]');
+  await waitForHomeReady(page);
   v = await page.inputValue('#home-minutes');
   ok('124b 刷新仍 30', v === '30', v);
   await page.close();
@@ -1489,7 +1553,7 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
   let d = await page.evaluate(() => ({ state: document.getElementById('home-control').dataset.state, button: document.getElementById('home-start').textContent, inputHidden: document.getElementById('home-minutes').hidden }));
   ok('126a 专注中首页返回标签', d.state === 'running' && /^返回专注 · \d{2}:\d{2}$/.test(d.button) && d.inputHidden, JSON.stringify(d));
   await page.click('#home-start');
-  await page.waitForSelector('body[data-view="scene"]');
+  await waitForHomeNear(page);
   ok('126b 专注中返回同一轮', (await state(page)).run.roundId === 'h-run' && (await state(page)).run.status === 'running');
   await page.close();
 
@@ -1498,7 +1562,7 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
   d = await page2Dock(p2);
   ok('126c 已暂停首页标签', d.state === 'paused' && d.button === '已暂停 · 18:42', JSON.stringify(d));
   await p2.click('#home-start');
-  await p2.waitForSelector('body[data-view="scene"]');
+  await waitForHomeNear(p2);
   ok('126d 已暂停返回保持暂停', (await state(p2)).run.status === 'paused' && (await state(p2)).run.roundId === 'h-pause');
   await p2.close();
 
@@ -1512,14 +1576,15 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
   }));
   ok('126e 完成态首页可编辑开始与休息入口', d.state === 'done' && d.button === '开始专注' && !d.inputHidden && doneExtra.value === '25' && !doneExtra.breakHidden && doneExtra.breakLabel === '休息 5 分钟' && d.caption === '盛唐田园 · 距解锁蒸汽城镇还差 50 分钟', JSON.stringify({ ...d, ...doneExtra }));
   await p3.click('#home-start');
-  await p3.waitForSelector('body[data-view="scene"]');
+  await waitForHomeNear(p3);
   const nextRun = await state(p3);
   ok('126f 完成态首页一键开始新一轮', nextRun.run.status === 'running' && nextRun.run.roundId !== 'h-done' && nextRun.run.durationMs === 1500000, JSON.stringify(nextRun.run));
   await p3.close();
 
   const p4 = await newPage(browser, done);
   await p4.click('#home-break');
-  await p4.waitForSelector('body[data-view="scene"]');
+  await waitForHomeNear(p4);
+  await browseScene(p4);
   const brk = await state(p4);
   ok('126g 完成态首页休息入口按设置开始休息', brk.run.status === 'running' && brk.run.mode === 'break' && brk.run.durationMs === 300000 && (await p4.textContent('#plaque-status')) === '— 休息中 —', JSON.stringify(brk.run));
   await p4.close();
@@ -1530,8 +1595,11 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
   await m2EnterDemo(page);
   const d = await page2Dock(page);
   ok('127a 演示首页只读 15 秒', d.button === '开始专注 · 15 秒' && d.inputHidden, JSON.stringify(d));
+  // 此处验证轮次时长，而非两步导航耗时；只冻结业务时钟，镜头/揭幕照常运行。
+  await page.evaluate(() => window.__freezeClock());
   await page.click('#home-start');
-  await page.waitForSelector('body[data-view="scene"]');
+  await waitForHomeNear(page);
+  await browseScene(page);
   const count = await page.textContent('#plaque-count');
   const s = await state(page);
   ok('127b 演示 15 秒不覆盖正式时长', /^00:1[2-5]$/.test(count) && s.settings.focusMinutes === 25 && s.run.status === 'idle' && s.progress.completedRounds === 0, JSON.stringify({ count, f: s.settings.focusMinutes, formal: s.run.status }));
@@ -1561,19 +1629,23 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
   const page = await newPage(browser, baseSeed());
   await page.fill('#home-minutes', '40');
   await page.dblclick('#home-start');
-  await page.waitForSelector('body[data-view="scene"]');
+  await waitForHomeNear(page);
   const rid = (await state(page)).run.roundId;
   ok('129a 连点只产生一轮', (await state(page)).run.status === 'running' && (await state(page)).run.durationMs === 2400000 && (await state(page)).progress.completedRounds === 0, rid);
+  await browseScene(page);
   await page.click('[data-action="back-home"]');
   await page.waitForTimeout(1500);
-  const b = await globeCenter(page);
+  if ((await page.getAttribute('body', 'data-dial')) !== 'far') await page.click('#dial-view-btn');
+  await page.waitForSelector('body[data-view="home"][data-dial="far"]');
+  await page.waitForTimeout(1100); // 镜头回到全景后再验证拖拽不会被误判为点击。
+  const b = await dialCenter(page);
   await page.mouse.move(b.x, b.y);
   await page.mouse.down();
   await page.mouse.move(b.x + 90, b.y + 20, { steps: 6 });
   await page.mouse.up();
   await page.waitForTimeout(300);
-  const drag = await page.evaluate(() => ({ view: document.body.dataset.view, status: JSON.parse(localStorage.getItem('wmf:v1:formal')).run.status, roundId: JSON.parse(localStorage.getItem('wmf:v1:formal')).run.roundId }));
-  ok('129b 拖拽不触发进入且轮次不变', drag.view === 'home' && drag.status === 'running' && drag.roundId === rid, JSON.stringify(drag));
+  const drag = await page.evaluate(() => ({ view: document.body.dataset.view, dial: document.body.dataset.dial, status: JSON.parse(localStorage.getItem('wmf:v1:formal')).run.status, roundId: JSON.parse(localStorage.getItem('wmf:v1:formal')).run.roundId }));
+  ok('129b 拖拽不切换视角或进入文明且轮次不变', drag.view === 'home' && drag.dial === 'far' && drag.status === 'running' && drag.roundId === rid, JSON.stringify(drag));
   await page.close();
 }
 
@@ -1590,7 +1662,7 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
   ok('130a 保存失败同次点击不建轮且保留草稿', r.view === 'home' && !r.errHidden && r.err.includes('保存失败') && r.value === '40' && s.settings.focusMinutes === 25 && s.run.status === 'idle' && s.run.roundId === null, JSON.stringify({ r, f: s.settings.focusMinutes }));
   await page.evaluate(() => { window.__failFormal = false; });
   await page.click('#home-start');
-  await page.waitForSelector('body[data-view="scene"]');
+  await waitForHomeNear(page);
   s = await state(page);
   ok('130b 恢复存储后重试按 40 开始', s.run.status === 'running' && s.run.durationMs === 2400000 && s.settings.focusMinutes === 40, JSON.stringify({ d: s.run.durationMs, f: s.settings.focusMinutes }));
   await page.close();
@@ -1617,11 +1689,9 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
   await enterScene(page);
   await page.click('[data-action="reset"]');
   await page.evaluate(() => window.__advance(7000));
-  await page.waitForTimeout(800);
-  if (await page.locator('#unlock-dialog[open]').count()) {
-    await page.click('[data-action="close-unlock"]');
-    await page.waitForFunction(() => !document.getElementById('fx-canvas').classList.contains('is-active'), null, { timeout: 5000 });
-  }
+  await page.waitForSelector('#unlock-dialog[open]');
+  await page.click('[data-action="close-unlock"]');
+  await page.waitForFunction(() => !document.getElementById('fx-canvas').classList.contains('is-active'), null, { timeout: 5000 });
   await page.click('[data-action="confirm-reset"]');
   const s = await state(page);
   ok('132a 过期后确认重置仅关闭不撤销完成', s.run.status === 'done' && s.progress.completedRounds === 2 && (await page.locator('#confirm-dialog[open]').count()) === 0, JSON.stringify({ st: s.run.status, rounds: s.progress.completedRounds }));
@@ -1632,11 +1702,11 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
     window.__advance(7000);
     document.getElementById('home-start').click();
   });
-  await p2.waitForSelector('body[data-view="scene"]');
-  await p2.waitForTimeout(2100);
+  await waitForHomeNear(p2);
   const s2 = await state(p2);
-  ok('132b 到期瞬间返回专注只导航不建新轮', s2.run.status === 'done' && s2.run.roundId === 'm1-6000' && s2.progress.completedRounds === 2, JSON.stringify(s2.run));
-  ok('132c 到期进入仍展示首次解锁卡', (await p2.locator('#unlock-dialog[open]').count()) === 1);
+  ok('132b 到期瞬间返回专注只近看不建新轮', s2.run.status === 'done' && s2.run.roundId === 'm1-6000' && s2.progress.completedRounds === 2, JSON.stringify(s2.run));
+  await browseScene(p2);
+  ok('132c 到期后经文明入口仍展示首次解锁卡', (await p2.locator('#unlock-dialog[open]').count()) === 1);
   await p2.close();
 }
 
@@ -1646,8 +1716,8 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
     if (i === 0) await enterScene(page);
     else {
       await page.click('#home-start');
-      await page.waitForSelector('body[data-view="scene"]');
-      await page.waitForTimeout(1600);
+      await waitForHomeNear(page);
+      await browseScene(page);
     }
     await page.evaluate(() => window.__advance(3 * 60000 + 1000));
     await page.waitForTimeout(800);
@@ -1673,14 +1743,14 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
   const page = await newPage(browser, revisit);
   let d = await page2Dock(page);
   const brkHidden = await page.evaluate(() => document.getElementById('home-break').hidden);
-  ok('134a 全解锁回看完成态可直接开始与休息', d.button === '开始专注' && !d.inputHidden && !brkHidden && d.caption === '石器聚落 · 已累计专注 100 分钟', JSON.stringify({ ...d, brkHidden }));
+  ok('134a 旧三代开放后回看完成态可直接开始与休息', d.button === '开始专注' && !d.inputHidden && !brkHidden && d.caption === '石器聚落 · 距解锁信息时代还差 50 分钟', JSON.stringify({ ...d, brkHidden }));
   await page.reload();
-  await page.waitForSelector('body[data-app-ready="true"]');
+  await waitForHomeReady(page);
   d = await page2Dock(page);
-  ok('134b 刷新不重放庆祝', d.caption === '石器聚落 · 已累计专注 100 分钟' && (await page.locator('#unlock-dialog[open]').count()) === 0, JSON.stringify(d));
+  ok('134b 刷新不重放庆祝', d.caption === '石器聚落 · 距解锁信息时代还差 50 分钟' && (await page.locator('#unlock-dialog[open]').count()) === 0, JSON.stringify(d));
   await page.click('#home-start');
-  await page.waitForSelector('body[data-view="scene"]');
-  await page.waitForTimeout(1600);
+  await waitForHomeNear(page);
+  await browseScene(page);
   await page.evaluate(() => window.__advance(25 * 60000 + 1000));
   await page.waitForTimeout(800);
   const s = await state(page);
@@ -1692,8 +1762,8 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
   const doneRun = { mode: 'focus', status: 'done', durationMs: 1500000, deadline: null, remainingMs: 0, roundId: 'd1', completion: { unlockedEra: null, futureEra: null, at: Date.now() } };
   const page = await newPage(browser, baseSeed({ progress: { legacyEraFloor: 'stone', completedRounds: 1, focusMinutes: 25, lastSettledRoundId: 'd1', viewEra: 'stone' }, run: doneRun }));
   await page.click('#home-break');
-  await page.waitForSelector('body[data-view="scene"]');
-  await page.waitForTimeout(1600);
+  await waitForHomeNear(page);
+  await browseScene(page);
   await page.click('[data-action="back-home"]');
   await page.waitForTimeout(1500);
   let d = await page2Dock(page);
@@ -1704,8 +1774,8 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
   d = await page2Dock(page);
   ok('135b 休息自然到期回待开始不计进度', s.run.status === 'idle' && s.progress.completedRounds === 1 && s.progress.focusMinutes === 25 && d.button === '开始专注' && !d.inputHidden, JSON.stringify({ st: s.run.status, d }));
   await page.click('#home-start');
-  await page.waitForSelector('body[data-view="scene"]');
-  await page.waitForTimeout(1600);
+  await waitForHomeNear(page);
+  await browseScene(page);
   await page.evaluate(() => window.__advance(25 * 60000 + 1000));
   await page.waitForTimeout(800);
   await page.waitForSelector('#unlock-dialog[open]', { timeout: 5000 });
@@ -1714,8 +1784,8 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
   await page.click('[data-action="back-home"]');
   await page.waitForTimeout(1500);
   await page.click('#home-break');
-  await page.waitForSelector('body[data-view="scene"]');
-  await page.waitForTimeout(1600);
+  await waitForHomeNear(page);
+  await browseScene(page);
   await page.click('#plaque-controls [data-action="end-break"]');
   s = await state(page);
   ok('135c 手动结束休息回待开始', s.run.status === 'idle' && s.progress.completedRounds === 2 && (await page.textContent('#plaque-status')) === '— 待开始 —', JSON.stringify({ st: s.run.status, rounds: s.progress.completedRounds }));
@@ -1725,7 +1795,7 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
   d = await page2Dock(p2);
   ok('135d 休息暂停首页标签', d.state === 'paused' && d.button === '休息暂停 · 03:20' && d.inputHidden, JSON.stringify(d));
   await p2.click('#home-start');
-  await p2.waitForSelector('body[data-view="scene"]');
+  await waitForHomeNear(p2);
   ok('135e 休息暂停返回保持暂停', (await state(p2)).run.status === 'paused' && (await state(p2)).run.roundId === 'bp');
   await p2.close();
 }
@@ -1741,8 +1811,8 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
   const demoDock = await page2Dock(page);
   ok('136b 演示不显示正式解锁反馈', demoCap.includes('演示') && demoCap.includes('完成 1 轮解锁盛唐田园') && demoDock.button === '开始专注 · 15 秒', JSON.stringify({ demoCap, demoDock }));
   await page.click('#home-start');
-  await page.waitForSelector('body[data-view="scene"]');
-  await page.waitForTimeout(1600);
+  await waitForHomeNear(page);
+  await browseScene(page);
   await page.evaluate(() => window.__advance(16000));
   await page.waitForSelector('#unlock-dialog[open]', { timeout: 5000 });
   const demoTitle = await page.textContent('#unlock-title');
@@ -1758,14 +1828,14 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
   await page.waitForTimeout(1600);
   cap = await page.textContent('#era-caption');
   const s = await state(page);
-  ok('136e 退出演示回正式完成态且通知不重放', s.run.status === 'done' && s.progress.completedRounds === 2 && cap === '蒸汽城镇 · 已累计专注 100 分钟', JSON.stringify({ cap, rounds: s.progress.completedRounds }));
+  ok('136e 退出演示回正式完成态且通知不重放', s.run.status === 'done' && s.progress.completedRounds === 2 && cap === '蒸汽城镇 · 距解锁信息时代还差 50 分钟', JSON.stringify({ cap, rounds: s.progress.completedRounds }));
   await page.reload();
-  await page.waitForSelector('body[data-app-ready="true"]');
+  await waitForHomeReady(page);
   cap = await page.textContent('#era-caption');
-  ok('136f 刷新不重放解锁反馈', cap === '蒸汽城镇 · 已累计专注 100 分钟', cap);
+  ok('136f 刷新不重放解锁反馈', cap === '蒸汽城镇 · 距解锁信息时代还差 50 分钟', cap);
   await page.click('#home-start');
-  await page.waitForSelector('body[data-view="scene"]');
-  await page.waitForTimeout(1600);
+  await waitForHomeNear(page);
+  await browseScene(page);
   await page.evaluate(() => window.__advance(25 * 60000 + 1000));
   await page.waitForTimeout(800);
   await page.click('[data-action="back-home"]');
@@ -1774,7 +1844,7 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', {
   ok('136g 新一轮完成显示普通反馈而非上轮解锁', cap === '专注完成 · +25 分钟', cap);
   await page.evaluate(() => window.__advance(4100));
   await page.waitForTimeout(300);
-  ok('136h 普通反馈到期恢复真实累计', (await page.textContent('#era-caption')) === '蒸汽城镇 · 已累计专注 125 分钟');
+  ok('136h 普通反馈到期恢复真实累计', (await page.textContent('#era-caption')) === '蒸汽城镇 · 距解锁信息时代还差 25 分钟');
   await page.close();
 }
 
@@ -1804,7 +1874,7 @@ for (const bad of ['99999999999999999999', '150000000000000']) {
   s = await state(page);
   ok('138b 设置 30 双向同步且完成轮不变', inSettings === '40' && (await page.inputValue('#home-minutes')) === '30' && s.settings.focusMinutes === 30 && s.run.durationMs === 1500000, JSON.stringify({ inSettings, f: s.settings.focusMinutes }));
   await page.click('#home-start');
-  await page.waitForSelector('body[data-view="scene"]');
+  await waitForHomeNear(page);
   s = await state(page);
   ok('138c 完成态保存后开始按新值 30 分钟', s.run.status === 'running' && s.run.durationMs === 1800000 && s.run.roundId !== 'h-done', JSON.stringify({ d: s.run.durationMs, st: s.run.status }));
   await page.close();
@@ -1827,13 +1897,13 @@ for (const [w, h] of [[1280, 800], [1017, 555], [390, 844], [320, 568]]) {
       await page.waitForTimeout(300);
     }
     const m = await page.evaluate(() => {
-      const c = document.getElementById('globe-canvas');
+      const c = document.getElementById('dial-canvas');
       const cap = document.getElementById('era-caption').getBoundingClientRect();
       const ctrl = document.getElementById('home-control').getBoundingClientRect();
       const brk = document.getElementById('home-break');
       const err = document.getElementById('home-error');
       return {
-        outerBottom: +c.dataset.cy + +c.dataset.outer,
+        dialBottom: +c.dataset.cy + +c.dataset.ry,
         capTop: cap.top,
         capBottom: cap.bottom,
         ctrlTop: ctrl.top,
@@ -1849,7 +1919,7 @@ for (const [w, h] of [[1280, 800], [1017, 555], [390, 844], [320, 568]]) {
       };
     });
     const lowest = Math.max(m.ctrlBottom, m.brkBottom, m.errBottom);
-    ok(`139 ${w}x${h} ${mode} 外轮廓间距与无滚动`, m.capTop - m.outerBottom >= need && m.ctrlTop - m.capBottom >= 10 && m.ctrlTop - m.capBottom <= 14 && lowest <= m.innerH && m.ctrlLeft >= 0 && m.ctrlRight <= m.innerW && m.scrollW <= m.innerW && m.scrollH <= m.innerH, JSON.stringify({ gap: Math.round(m.capTop - m.outerBottom), capCtrl: Math.round(m.ctrlTop - m.capBottom), lowest: Math.round(lowest), ctrlLeft: Math.round(m.ctrlLeft), ctrlRight: Math.round(m.ctrlRight) }));
+    ok(`139 ${w}x${h} ${mode} 外轮廓间距与无滚动`, m.capTop - m.dialBottom + DIAL_PROJECTION_EPSILON >= need && m.ctrlTop - m.capBottom >= 10 && m.ctrlTop - m.capBottom <= 14 && lowest <= m.innerH && m.ctrlLeft >= 0 && m.ctrlRight <= m.innerW && m.scrollW <= m.innerW && m.scrollH <= m.innerH, JSON.stringify({ gap: Math.round(m.capTop - m.dialBottom), capCtrl: Math.round(m.ctrlTop - m.capBottom), lowest: Math.round(lowest), ctrlLeft: Math.round(m.ctrlLeft), ctrlRight: Math.round(m.ctrlRight) }));
     await page.close();
   }
 }
@@ -1863,19 +1933,21 @@ for (const [w, h] of [[1280, 800], [1017, 555], [390, 844], [320, 568]]) {
   const m = await page.evaluate(() => {
     const inp = document.getElementById('home-minutes').getBoundingClientRect();
     const cap = document.getElementById('era-caption').getBoundingClientRect();
-    const c = document.getElementById('globe-canvas');
-    return { inpBottom: inp.bottom, inpTop: inp.top, capTop: cap.top, outerBottom: +c.dataset.cy + +c.dataset.outer, innerH: window.innerHeight, scrollH: document.documentElement.scrollHeight, focused: document.activeElement?.id === 'home-minutes', value: document.getElementById('home-minutes').value };
+    const c = document.getElementById('dial-canvas');
+    return { inpBottom: inp.bottom, inpTop: inp.top, capTop: cap.top, dialBottom: +c.dataset.cy + +c.dataset.ry, innerH: window.innerHeight, scrollH: document.documentElement.scrollHeight, focused: document.activeElement?.id === 'home-minutes', value: document.getElementById('home-minutes').value };
   });
-  ok('141 模拟键盘压缩视口后输入与说明仍可见', m.focused && m.value === '40' && m.inpBottom <= m.innerH && m.inpTop >= 0 && m.capTop - m.outerBottom >= 16 && m.scrollH <= m.innerH, JSON.stringify(m));
+  ok('141 模拟键盘压缩视口后输入与说明仍可见', m.focused && m.value === '40' && m.inpBottom <= m.innerH && m.inpTop >= 0 && m.capTop - m.dialBottom + DIAL_PROJECTION_EPSILON >= 16 && m.scrollH <= m.innerH, JSON.stringify(m));
   await page.close();
 }
 
 {
   const page = await newPage(browser, baseSeed(), { reduced: true });
-  const c = await globeCenter(page);
+  const c = await dialCenter(page);
   await page.mouse.click(c.x, c.y);
-  await page.waitForSelector('body[data-view="scene"]');
-  ok('140 减少动态首页仍可浏览进入', (await state(page)).run.status === 'idle');
+  await waitForHomeNear(page);
+  ok('140a 减少动态点击时钟只近看', (await state(page)).run.status === 'idle' && (await state(page)).run.roundId === null);
+  await browseScene(page);
+  ok('140 减少动态首页仍可经文明入口浏览', (await state(page)).run.status === 'idle');
   await page.close();
 }
 
@@ -1968,8 +2040,8 @@ for (const [w, h] of [[1280, 800], [1017, 555], [390, 844], [320, 568]]) {
   const p5 = await newPage(browser, baseSeed());
   await m2EnterDemo(p5);
   await p5.click('#home-start');
-  await p5.waitForSelector('body[data-view="scene"]');
-  await p5.waitForTimeout(2100);
+  await waitForHomeNear(p5);
+  await browseScene(p5);
   await p5.click('[data-action="back-home"]');
   await p5.waitForTimeout(1700);
   d = await segs(p5);
@@ -2012,6 +2084,7 @@ for (const [w, h] of [[1280, 800], [1017, 555], [390, 844], [320, 568]]) {
 }
 
 /* ---------- 50 分钟解锁方案：A1–A14 ---------- */
+// 经典像素场景、图鉴与音频仍只有旧三代；首页大类来自四时代目录。
 const A_ERAS = ['stone', 'tang', 'steam'];
 const A_NAMES = ['石器聚落', '盛唐田园', '蒸汽城镇'];
 const aProgress = (focusMinutes = 0, completedRounds = 0, viewEra = 'stone') => ({
@@ -2034,7 +2107,7 @@ async function aHome(page) {
 }
 async function aReload(page) {
   await page.reload();
-  await page.waitForSelector('body[data-app-ready="true"]');
+  await waitForHomeReady(page);
 }
 async function aWatchUnlocks(page) {
   await page.evaluate(() => {
@@ -2113,8 +2186,8 @@ async function aGates(page, expected, label, fill) {
   const ids = new Set();
   for (let round = 1; round <= 4; round += 1) {
     await page.click('#home-start');
-    await page.waitForSelector('body[data-view="scene"]');
-    await page.waitForTimeout(2100);
+    await waitForHomeNear(page);
+    await browseScene(page);
     const started = await state(page);
     ids.add(started.run.roundId);
     await aHome(page);
@@ -2135,7 +2208,7 @@ async function aGates(page, expected, label, fill) {
     ok(`A1.${round} 开放集合一致`, available.join(',') === A_ERAS.slice(0, A_ERAS.indexOf(era) + 1).join(','), available.join(','));
     await aHome(page);
     await aAdvance(page, 4000);
-    const normal = round === 4 ? '蒸汽城镇 · 已累计专注 100 分钟' : `${A_NAMES[A_ERAS.indexOf(era)]} · 距解锁${round < 2 ? '盛唐田园' : '蒸汽城镇'}还差 ${round < 2 ? 50 - round * 25 : 100 - round * 25} 分钟`;
+    const normal = round === 4 ? '蒸汽城镇 · 距解锁信息时代还差 50 分钟' : `${A_NAMES[A_ERAS.indexOf(era)]} · 距解锁${round < 2 ? '盛唐田园' : '蒸汽城镇'}还差 ${round < 2 ? 50 - round * 25 : 100 - round * 25} 分钟`;
     ok(`A1.${round} 常态剩余门槛`, (await page.textContent('#era-caption')) === normal);
   }
   ok('A1 四个独立 roundId / 总共两张卡', ids.size === 4 && (await page.evaluate(() => window.__unlockTitles.join('|'))) === '盛唐田园|蒸汽城镇');
@@ -2206,14 +2279,14 @@ for (const [minutes, target] of [[49, 'tang'], [99, 'steam']]) {
 }
 
 // A5：只删除字段的旧档可以迁移。两次加载验证幂等与运行上下文保留。
-for (const [rounds, minutes, floor, era] of [[1, 25, 'tang', 'tang'], [2, 50, 'steam', 'steam'], [0, 100, 'stone', 'stone']]) {
+for (const [rounds, minutes, floor, era] of [[1, 25, 'tang', 'tang'], [2, 50, 'steam', 'steam'], [0, 100, 'stone', 'stone'], [20, 2, 'steam', 'steam']]) {
   const seed = baseSeed({ settings: { focusMinutes: 31, breakMinutes: 7 }, progress: { ...aProgress(minutes, rounds, era), lastSettledRoundId: 'old-settled' }, run: { mode: 'focus', status: 'paused', durationMs: 1860000, deadline: null, remainingMs: 123456, roundId: 'legacy-paused', completion: null } });
   delete seed.progress.legacyEraFloor;
   const page = await newPage(browser, seed, { extraInit: A_FROZEN });
   for (let load = 1; load <= 2; load += 1) {
     if (load > 1) await aReload(page);
     const caption = await page.textContent('#era-caption');
-    ok(`A5 ${rounds} 轮旧档加载 ${load} 保留视图且无庆祝`, (await page.evaluate(() => document.body.dataset.theme)) === era && (await page.locator('#unlock-dialog[open]').count()) === 0 && !(caption.includes('已解锁')) && (await page.evaluate(() => window.__osc)) === 0 && (minutes !== 25 || caption === '盛唐田园 · 距解锁蒸汽城镇还差 75 分钟'), caption);
+    ok(`A5 ${rounds} 轮旧档加载 ${load} 保留视图且无庆祝`, (await page.evaluate(() => document.body.dataset.theme)) === era && (await page.locator('#unlock-dialog[open]').count()) === 0 && !(caption.includes('已解锁')) && (await page.evaluate(() => window.__osc)) === 0 && (await page.locator('[data-home-era="information"]').isDisabled()) && caption === (floor === 'tang' ? '盛唐田园 · 距解锁蒸汽城镇还差 75 分钟' : `${A_NAMES[A_ERAS.indexOf(era)]} · 距解锁信息时代还差 ${150 - minutes} 分钟`), caption);
     await page.click('#settings-btn');
     await page.click('#settings-form button[type="submit"]'); // 每次成功保存必须写出迁移字段。
     const s = await state(page);
@@ -2299,14 +2372,18 @@ for (const route of ['reload', 'background']) {
   ok('A7 取消后仍是同一暂停轮', (await state(page)).run.status === 'paused' && (await state(page)).run.roundId === 'acceptance-run');
   await browseScene(page);
   await aHome(page);
-  const c = await globeCenter(page);
+  if ((await page.getAttribute('body', 'data-dial')) !== 'far') await page.click('#dial-view-btn');
+  await page.waitForSelector('body[data-view="home"][data-dial="far"]');
+  await page.waitForTimeout(1100);
+  const c = await dialCenter(page);
   await page.mouse.move(c.x, c.y);
   await page.mouse.down();
   await page.mouse.move(c.x + 80, c.y + 15, { steps: 8 });
   await page.mouse.up();
+  ok('A7 拖拽时钟不切换视角或进入场景', (await page.getAttribute('body', 'data-view')) === 'home' && (await page.getAttribute('body', 'data-dial')) === 'far');
   await page.click('#home-reset');
   await page.click('[data-action="confirm-reset"]');
-  ok('A7 暂停/取消/导航/拖球/重置均不增累计或开放', aSameProgress((await state(page)).progress, baseline) && (await state(page)).run.status === 'idle' && (await page.locator('#unlock-dialog[open]').count()) === 0);
+  ok('A7 暂停/取消/导航/拖拽/重置均不增累计或开放', aSameProgress((await state(page)).progress, baseline) && (await state(page)).run.status === 'idle' && (await page.locator('#unlock-dialog[open]').count()) === 0);
   await page.close();
   for (const status of ['running', 'paused']) {
     const run = aRun(5, 'break', `A7-${status}`);
@@ -2348,7 +2425,7 @@ for (const route of ['reload', 'background']) {
   }
   await aHome(page);
   await aAdvance(page, 4000);
-  ok('A8 演示常态使用轮数不使用正式分钟', (await page.textContent('#era-caption')) === '蒸汽城镇 · 演示 · 已完成 2 轮');
+  ok('A8 演示常态使用轮数不使用正式分钟', (await page.textContent('#era-caption')) === '蒸汽城镇 · 演示 · 完成 3 轮解锁信息时代');
   await page.click('#settings-btn');
   await page.click('#demo-exit-btn');
   await aAdvance(page, 5000);
@@ -2388,8 +2465,7 @@ for (const intent of ['direct', 'tab']) {
   const writes = await page.evaluate(() => window.__formalWrites);
   ok(`${label} 一次性失败保留 40 草稿和错误且没有新轮`, (await page.evaluate(() => document.body.dataset.view)) === 'home' && (await page.inputValue('#home-minutes')) === '40' && (await page.locator('#home-error').isVisible()) && error === '本地保存失败，请重试' && s.settings.focusMinutes === 25 && JSON.stringify(s.run) === JSON.stringify(initial) && writes.length === 1 && writes[0].failed, JSON.stringify({ error, writes, run: s.run }));
   await page.click('#home-start'); // 新的 pointerdown；Tab 后也不得吞掉这次独立意图。
-  await page.waitForSelector('body[data-view="scene"]');
-  await page.waitForTimeout(2100);
+  await waitForHomeNear(page);
   s = await state(page);
   const committed = await page.evaluate(() => window.__formalWrites.filter((w) => !w.failed && w.status === 'running').map((w) => w.roundId));
   ok(`${label} 独立重试仅建一个 40 分钟轮`, s.settings.focusMinutes === 40 && s.run.durationMs === 2400000 && s.run.status === 'running' && s.run.roundId !== initial.roundId && committed.length > 0 && new Set(committed).size === 1 && committed[0] === s.run.roundId && s.progress.completedRounds === 0 && s.progress.focusMinutes === 0, JSON.stringify({ run: s.run, committed }));
@@ -2424,8 +2500,9 @@ for (const kind of ['focus', 'natural-break', 'manual-break']) {
   await aAdvance(page, 25 * 60000 + 1000);
   ok('A11 累计使用锁定的 25 分钟而非已改设置 40', (await state(page)).progress.focusMinutes === 25 && (await page.textContent('#era-caption')) === '专注完成 · +25 分钟');
   await page.click('#home-start');
-  await page.waitForSelector('body[data-view="scene"]');
-  await page.waitForTimeout(2100);
+  await waitForHomeNear(page);
+  ok('A11 首页开始新轮立即清除上一轮反馈', !(await page.textContent('#era-caption')).includes('专注完成'));
+  await browseScene(page);
   ok('A11 开始新轮立即清除上一轮反馈并使用新时长', (await state(page)).run.status === 'running' && (await state(page)).run.durationMs === 2400000 && !(await page.textContent('#scene-hint-text')).includes('专注完成'));
   await page.close();
 }
@@ -2510,8 +2587,9 @@ for (const minutes of [0, 49, 50, 99, 100]) {
   const highest = expected.at(-1);
   const page = await newPage(browser, baseSeed({ progress: aProgress(minutes, 12, 'steam') }), { extraInit: A_FROZEN });
   await page.waitForTimeout(650);
-  const home = await page.evaluate(() => ({ theme: document.body.dataset.theme, globe: document.getElementById('globe-canvas').getAttribute('aria-label'), caption: document.getElementById('era-caption').textContent }));
-  ok(`A13 ${minutes} 首页球体/主题/说明门禁`, home.theme === highest && home.globe.includes(A_NAMES[A_ERAS.indexOf(highest)].slice(0, 2)) && home.caption.startsWith(A_NAMES[A_ERAS.indexOf(highest)]), JSON.stringify(home));
+  const home = await page.evaluate(() => ({ theme: document.body.dataset.theme, dial: document.getElementById('dial-canvas').getAttribute('aria-label'), caption: document.getElementById('era-caption').textContent }));
+  ok(`A13 ${minutes} 首页主题/说明门禁`, home.theme === highest && home.caption.startsWith(A_NAMES[A_ERAS.indexOf(highest)]), JSON.stringify(home));
+  ok(`A13 ${minutes} 时钟 aria 独立于时代`, home.dial.includes('宇宙时钟') && !A_NAMES.some((name) => home.dial.includes(name)), home.dial);
   ok(`A13 ${minutes} 背景使用同一开放集合`, (await aBackground(page)) === aBackgrounds.get(highest));
   await browseScene(page);
   await aGates(page, expected, `A13 ${minutes}`, Math.min(minutes, 100));
@@ -2524,7 +2602,7 @@ for (const minutes of [0, 49, 50, 99, 100]) {
   await page.click('.node[data-node="stone"]');
   await page.waitForTimeout(850);
   const hint = await page.textContent('#scene-hint-text');
-  const globalGoal = minutes < 50 ? `距解锁盛唐田园还差 ${50 - minutes} 分钟` : minutes < 100 ? `距解锁蒸汽城镇还差 ${100 - minutes} 分钟` : '已累计专注 100 分钟';
+  const globalGoal = minutes < 50 ? `距解锁盛唐田园还差 ${50 - minutes} 分钟` : minutes < 100 ? `距解锁蒸汽城镇还差 ${100 - minutes} 分钟` : '距解锁信息时代还差 50 分钟';
   ok(`A13 ${minutes} 回看石器仍显示全局下一门槛`, hint === `石器聚落 · ${globalGoal}`, hint);
   await aHome(page);
   ok(`A13 ${minutes} 首页回看同步全局目标`, (await page.textContent('#era-caption')) === `石器聚落 · ${globalGoal}`);
@@ -2534,11 +2612,11 @@ for (const minutes of [0, 49, 50, 99, 100]) {
   const done = baseSeed({ progress: { ...aProgress(100, 4, 'stone'), lastSettledRoundId: 'A13-done' }, run: { mode: 'focus', status: 'done', durationMs: 1500000, deadline: null, remainingMs: 0, roundId: 'A13-done', completion: { unlockedEra: 'steam', at: Date.now() } } });
   for (const action of ['#home-start', '#home-break']) {
     const page = await newPage(browser, done, { extraInit: A_FROZEN });
-    ok(`A13 全解锁回看石器 ${action} 入口仍可用`, (await page.locator('#home-minutes').isVisible()) && (await page.locator('#home-break').isVisible()));
+    ok(`A13 旧三代开放后回看石器 ${action} 入口仍可用`, (await page.locator('#home-minutes').isVisible()) && (await page.locator('#home-break').isVisible()));
     await page.click(action);
-    await page.waitForSelector('body[data-view="scene"]');
+    await waitForHomeNear(page);
     const s = await state(page);
-    ok(`A13 全解锁回看可开始 ${action}`, s.run.status === 'running' && s.run.mode === (action === '#home-start' ? 'focus' : 'break') && s.progress.focusMinutes === 100 && s.progress.completedRounds === 4);
+    ok(`A13 旧三代开放后回看可开始 ${action}`, s.run.status === 'running' && s.run.mode === (action === '#home-start' ? 'focus' : 'break') && s.progress.focusMinutes === 100 && s.progress.completedRounds === 4);
     await page.close();
   }
 }
@@ -2558,21 +2636,22 @@ for (const [width, height] of [[1017, 555], [320, 568]]) {
     const expected = kind === 'double-unlock' ? '盛唐田园、蒸汽城镇已解锁' : kind === 'natural-break' ? '休息结束 · 可以开始专注' : kind === 'manual-break' ? '休息已结束' : '本地保存失败，请重试';
     ok(`A14 ${width}x${height} ${kind} 真实反馈`, (await page.textContent(kind === 'save-error' ? '#home-error' : '#era-caption')) === expected);
     const m = await page.evaluate(() => {
-      const globe = document.getElementById('globe-canvas');
-      const cx = +globe.dataset.cx, cy = +globe.dataset.cy, outer = +globe.dataset.outer;
+      const dial = document.getElementById('dial-canvas');
+      // 全景是真实投影包围框，横纵半径不同，不能再用球体 outer。
+      const cx = +dial.dataset.cx, cy = +dial.dataset.cy, rx = +dial.dataset.rx, ry = +dial.dataset.ry;
       const cap = document.getElementById('era-caption');
       const cb = cap.getBoundingClientRect();
       const control = document.getElementById('home-control').getBoundingClientRect();
-      const visible = ['home-control', 'era-caption', 'home-error', 'home-break'].map((id) => document.getElementById(id)).filter((n) => !n.hidden);
+      const visible = ['home-control', 'era-caption', 'home-error', 'home-break', 'dial-view-btn', 'civilization-entry'].map((id) => document.getElementById(id)).filter((n) => !n.hidden);
       return {
-        globeFits: cx - outer >= 0 && cy - outer >= 0 && cx + outer <= innerWidth && cy + outer <= innerHeight,
-        gap: cb.top - cy - outer, controlGap: control.top - cb.bottom,
+        dialFits: rx > 0 && ry > 0 && cx - rx >= 0 && cy - ry >= 0 && cx + rx <= innerWidth && cy + ry <= innerHeight,
+        gap: cb.top - cy - ry, controlGap: control.top - cb.bottom,
         allFit: visible.every((n) => { const r = n.getBoundingClientRect(); return r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight; }),
         captionUnclipped: cap.scrollWidth <= cap.clientWidth && cap.scrollHeight <= cap.clientHeight,
         noScroll: document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight
       };
     });
-    ok(`A14 ${width}x${height} ${kind} 球体/说明/控件完整无滚动`, m.globeFits && m.gap >= 16 && m.controlGap >= 10 && m.controlGap <= 14 && m.allFit && m.captionUnclipped && m.noScroll, JSON.stringify(m));
+    ok(`A14 ${width}x${height} ${kind} 时钟投影/说明/控件完整无滚动`, m.dialFits && m.gap + DIAL_PROJECTION_EPSILON >= 16 && m.controlGap >= 10 && m.controlGap <= 14 && m.allFit && m.captionUnclipped && m.noScroll, JSON.stringify(m));
     await page.close();
   }
 }
@@ -2585,9 +2664,9 @@ for (const route of ['entry', 'browse']) {
   const page = await newPage(browser, seed, { extraInit: A_FROZEN });
   await aWatchUnlocks(page);
   if (route === 'entry') {
-    const center = await globeCenter(page);
-    await page.mouse.click(center.x, center.y);
-    await page.waitForSelector('body[data-view="scene"]');
+    // 不调用 browseScene 的转场等待：刻意在文明入口揭幕期间触发到期。
+    await page.click('#civilization-entry');
+    await page.waitForFunction(() => document.body.dataset.view === 'scene' && document.getElementById('fx-canvas').classList.contains('is-active'));
   } else {
     await browseScene(page);
     await page.click('.node[data-node="stone"]');
@@ -2610,10 +2689,10 @@ await browser.close();
 {
   const b2 = await chromium.launch({ executablePath: CHROME, headless: true, args: ['--disable-webgl', '--disable-webgl2'] });
   const page = await newPage(b2, baseSeed());
-  const fb = await page.evaluate(() => !document.getElementById('globe-fallback').hidden);
+  const fb = await page.evaluate(() => !document.getElementById('dial-fallback').hidden);
   ok('42 WebGL 禁用显示降级按钮', fb);
   if (fb) {
-    await page.click('#globe-fallback');
+    await page.click('#dial-fallback');
     await page.waitForSelector('body[data-view="scene"]');
     await page.waitForTimeout(600);
     ok('42b 降级按钮仅浏览保持待开始', (await state(page)).run.status === 'idle');
@@ -2622,7 +2701,7 @@ await browser.close();
     await page.click('[data-action="back-home"]');
     await page.waitForTimeout(1600);
     const fbLayout = await page.evaluate(() => {
-      const f = document.getElementById('globe-fallback').getBoundingClientRect();
+      const f = document.getElementById('dial-fallback').getBoundingClientRect();
       const cap = document.getElementById('era-caption').getBoundingClientRect();
       return { gap: cap.top - f.bottom, inVp: f.top >= 0 && f.left >= 0 && f.right <= window.innerWidth && f.bottom <= window.innerHeight };
     });

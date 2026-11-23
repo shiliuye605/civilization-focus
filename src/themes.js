@@ -256,6 +256,15 @@ export const THEMES = {
       lamp: '#e8c078',
       rail: '#9aa4ac'
     }
+  },
+
+  information: {
+    id: 'information',
+    eraId: 'information',
+    available: true,
+    clockStyle: 'industrial',
+    accent: '#9ac9cb',
+    aria: '信息时代宇宙时钟'
   }
 };
 

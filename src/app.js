@@ -10,7 +10,7 @@ import {
 import { loadState, saveState, storageAvailable } from './store.js';
 import { THEMES } from './themes.js';
 import { ERA_ORDER, ERAS, unlockedEras, highestUnlockedEra, nextLockedEra, canEnterEra, DEMO_FOCUS_MS, DEMO_BREAK_MS } from './eras.js';
-import { createGlobe } from './globe.js';
+import { createDial } from './dial.js';
 import { createScene } from './scene.js';
 import { createClock } from './clock.js';
 import { createUI, createFx } from './ui.js';
@@ -18,6 +18,8 @@ import { createBackground } from './background.js';
 import { createAudio } from './audio.js';
 import { loadAudioPrefs, saveAudioPrefs } from './audio-prefs.js';
 import { AMBIENCES, unlockedAmbiences, backgroundForEra } from './rewards.js';
+import { ERAS as PLACE_ERAS, SCENES, SCENES_BY_ERA } from './scene-catalog.mjs';
+import { loadScenePrefs, saveScenePrefs } from './scene-prefs.js';
 
 function parseMinutes(value) {
   const text = String(value).trim();
@@ -49,6 +51,9 @@ export function boot() {
   let theme = null;
   let fitMode = 'immersive';
   let homeDirty = false;
+  let dialNear = false;
+  const formalPlaces = loadScenePrefs();
+  let places = formalPlaces;
 
   if (loaded.recovered) console.warn('文明专注：存档读取失败，已恢复可用的初始进度。');
   if (!storageOK || loaded.storageFailed) console.warn('文明专注：浏览器存储不可用，本次进度可能无法保存。');
@@ -62,10 +67,30 @@ export function boot() {
   const fx = createFx(ui.els.fxCanvas, { reducedMotion: reduced });
   const clock = createClock(ui.els.clock);
   const scene = createScene(ui.els.sceneCanvas, { reducedMotion: reduced });
-  const globe = createGlobe(ui.els.globeCanvas, {
-    fallback: ui.els.globeFallback,
+  const dial = createDial(ui.els.dialCanvas, {
+    fallback: ui.els.dialFallback,
     reducedMotion: reduced,
-    onActivate: browseGlobe
+    getRun: () => state.run,
+    onActivate: () => setDialNear(!dialNear),
+    onFallback: () => {
+      if (ERAS[clampViewEra()].mapLabel) browseScene();
+      else ui.els.homeStart.focus();
+    },
+    onReady: () => { ui.els.dialViewBtn.disabled = false; },
+    onFailure: () => {
+      ui.els.dialViewBtn.disabled = true;
+      ui.els.sceneSelect.disabled = true;
+      ui.els.lifeNext.disabled = true;
+      ui.setCivilizationStatus({ status: 'ready' }, '');
+      ui.els.placeName.textContent = '3D 地点暂不可用';
+      ui.els.placeName.removeAttribute('title');
+    },
+    onCivilizationState: (status) => {
+      ui.setCivilizationStatus(status, SCENES[status.target].label);
+      ui.setPlaceInfo(status.sceneId ? SCENES[status.sceneId] : null);
+      ui.els.lifeNext.disabled = reduced || status.status !== 'ready' || status.flipping;
+      syncDialLayout();
+    }
   });
   const background = createBackground(ui.els.bgCanvas, { reducedMotion: reduced });
 
@@ -209,7 +234,7 @@ export function boot() {
     return ok;
   }
 
-  function syncTheme() {
+  function syncTheme({ animate = true } = {}) {
     const id = clampViewEra();
     const next = THEMES[id];
     const changed = !theme || next.id !== theme.id;
@@ -218,8 +243,35 @@ export function boot() {
     clock.setTheme(theme);
     background.setEra(theme.id, state.progress, demoActive);
     syncAmbience();
-    if (changed) globe.setTheme(theme);
+    syncPlace(animate);
+    ui.setHomeEras(Object.keys(PLACE_ERAS).map((eraId) => ({
+      id: eraId,
+      name: PLACE_ERAS[eraId].name,
+      unlocked: canEnterEra(eraId, state.progress, demoActive),
+      requirement: demoActive ? `演示完成 ${ERAS[eraId].unlockRounds} 轮解锁` : `累计专注 ${ERAS[eraId].unlockMinutes} 分钟解锁`
+    })), id);
     return changed;
+  }
+
+  function syncPlace(animate = true) {
+    const era = clampViewEra();
+    const id = places[era];
+    const hasClassicScene = Boolean(ERAS[era].mapLabel);
+    ui.setLocations(SCENES_BY_ERA[era].map((sceneId) => SCENES[sceneId]), id);
+    ui.els.civilizationEntry.disabled = !hasClassicScene;
+    ui.els.civilizationEntry.title = hasClassicScene ? '打开经典文明场景' : '信息时代仅在时钟上展示';
+    ui.els.dialFallback.querySelector('span').textContent = hasClassicScene ? '点击进入经典文明场景' : '使用下方计时器';
+    dial.setScene(id, { animate });
+  }
+
+  function selectPlace(id) {
+    const era = clampViewEra();
+    if (!Object.hasOwn(SCENES, id) || SCENES[id].era !== era || !canEnterEra(era, state.progress, demoActive)) return;
+    if (places[era] === id) return;
+    places[era] = id;
+    if (!demoActive && !saveScenePrefs(places)) ui.setStorageStatus('places-save');
+    syncPlace();
+    ui.announce(`查看${SCENES[id].label}`);
   }
 
   function digitsForRun(run) {
@@ -306,7 +358,7 @@ export function boot() {
       ];
     }
 
-    const nodes = ERA_ORDER.map((id, i) => {
+    const nodes = ERA_ORDER.filter((id) => ERAS[id].mapLabel).map((id, i) => {
       const era = ERAS[id];
       const unlocked = canEnterEra(id, state.progress, demoActive);
       return {
@@ -375,20 +427,27 @@ export function boot() {
     return { state: 'running', caption, buttonLabel: `${run.mode === 'break' ? '返回休息' : '返回专注'} · ${remain}`, hideInput: true, breakLabel: null, segment: 'pause', isBreak: run.mode === 'break' };
   }
 
-  function syncGlobeLayout() {
+  function syncDialLayout() {
     if (view !== 'home') return;
     const dock = ui.els.homeDock;
+    const top = ui.els.homeTop;
     const gap = window.innerWidth < 700 || window.innerHeight < 620 ? 16 : 24;
     // dock-in 入场动画会移动 getBoundingClientRect，用不受 transform 影响的几何量取最终留白
     const bottom = parseFloat(getComputedStyle(dock).bottom) || 0;
-    globe.setBottomReserve(bottom + dock.offsetHeight + gap);
+    dial.setInsets({
+      top: top.offsetTop + top.offsetHeight + gap / 2,
+      nearTop: top.offsetTop + top.offsetHeight + gap / 2,
+      bottom: bottom + dock.offsetHeight + gap
+    });
   }
 
   function renderHome() {
     const vm = buildHomeVM();
+    vm.count = state.run.status === 'idle' ? '' : digitsForRun(state.run);
+    vm.statusLabel = `${demoActive ? '演示 · ' : ''}${state.run.mode === 'break' ? '休息' : '专注'} · ${state.run.status === 'paused' ? '已暂停' : state.run.status === 'done' ? '已完成' : '进行中'}`;
     vm.inputLocked = homeDirty || document.activeElement === ui.els.homeMinutes;
     ui.renderHome(vm);
-    syncGlobeLayout();
+    syncDialLayout();
   }
 
   function applySettings(next) {
@@ -437,9 +496,18 @@ export function boot() {
     return ok;
   }
 
-  function browseGlobe() {
+  function browseScene() {
     if (busy || view === 'scene') return;
     openScene();
+  }
+
+  function setDialNear(next) {
+    if (busy || view !== 'home' || next === dialNear || (next && !dial.isReady())) return;
+    dialNear = next;
+    dial.setNear(next);
+    ui.setDialView(next);
+    renderHome();
+    ui.announce(next ? '随指针观察' : '时钟全景');
   }
 
   function homeStart() {
@@ -452,7 +520,8 @@ export function boot() {
     settleIfDue(Date.now());
     const run = state.run;
     if (intent === 'running' || intent === 'paused' || run.status === 'running' || run.status === 'paused') {
-      openScene();
+      setDialNear(true);
+      renderHome();
       return;
     }
     if (homeEditable() && !commitHomeDraft('click')) {
@@ -466,7 +535,8 @@ export function boot() {
       persist();
       ui.announce('学习开始');
     }
-    openScene();
+    setDialNear(true);
+    renderHome();
   }
 
   function homeBreak() {
@@ -478,7 +548,8 @@ export function boot() {
     homeFlash = null;
     persist();
     ui.announce('休息开始');
-    openScene();
+    setDialNear(true);
+    renderHome();
   }
 
   function homePauseToggle() {
@@ -554,16 +625,16 @@ export function boot() {
   /* ---------- transitions ---------- */
 
   function openScene() {
-    if (busy || view === 'scene') return;
+    if (busy || view === 'scene' || !ERAS[clampViewEra()].mapLabel) return;
     busy = true;
     document.body.classList.add('is-zooming');
-    globe.zoomIn(780, () => {
+    dial.dive(() => {
       fx.cover(340, () => {
         view = 'scene';
         ui.showView('scene');
         syncAmbience();
-        globe.setActive(false);
-        scene.setEra(clampViewEra());
+        dial.setActive(false);
+        if (ERAS[clampViewEra()].mapLabel) scene.setEra(clampViewEra());
         scene.start();
         renderScene();
         positionHotspots();
@@ -584,18 +655,21 @@ export function boot() {
       renderHome();
       syncAmbience();
       scene.stop();
-      globe.setActive(true);
-      globe.setZoom(1);
-      fx.reveal(360);
-      globe.zoomOut(780, () => {
-        busy = false;
-      });
+      dial.setActive(true);
+      let waiting = 2;
+      const done = () => {
+        waiting -= 1;
+        if (!waiting) busy = false;
+      };
+      fx.reveal(360, done);
+      dial.surface(done);
     });
   }
 
   function finishSceneTransition(event = null) {
     busy = false;
     if (view !== 'scene') return;
+    if (!ERAS[clampViewEra()].mapLabel) { closeScene(); return; }
     scene.setEra(clampViewEra());
     renderScene();
     positionHotspots();
@@ -622,11 +696,21 @@ export function boot() {
       state.progress.viewEra = target;
       persist();
       syncTheme();
-      scene.setEra(target);
+      if (ERAS[target].mapLabel) scene.setEra(target);
       renderScene();
       positionHotspots();
       fx.reveal(320, () => finishSceneTransition(owner === state ? takeover : null));
     });
+  }
+
+  function browseHomeEra(id) {
+    if (busy || view !== 'home' || !canEnterEra(id, state.progress, demoActive)) return;
+    if (id === state.progress.viewEra) return;
+    state.progress.viewEra = id;
+    persist();
+    syncTheme();
+    renderHome();
+    ui.announce(`查看${ERAS[id].name}`);
   }
 
   function browseEra(id) {
@@ -645,7 +729,9 @@ export function boot() {
     const eras = event.eraIds.filter((id) => canEnterEra(id, state.progress, demoActive)).map((id) => ERAS[id]);
     if (!eras.length) return;
     const rows = eras.flatMap((era) => {
-      const items = [`${era.name} · 图鉴新增 3 张：${era.codex.map((c) => c.title).join('、')}`];
+      const items = era.codex.length
+        ? [`${era.name} · 图鉴新增 ${era.codex.length} 张：${era.codex.map((c) => c.title).join('、')}`]
+        : [`${era.name} · 时钟开放 ${SCENES_BY_ERA[era.id].length} 处地点`];
       const bg = backgroundForEra(era.id, state.progress, demoActive);
       if (bg?.eraId === era.id) items.push(`背景 · ${bg.name}`);
       const amb = availableAmbiences().find((a) => a.eraId === era.id);
@@ -656,7 +742,7 @@ export function boot() {
   }
 
   function openCodexPanel(activeEra) {
-    const eras = unlockedEras(state.progress, demoActive).map((id) => ({
+    const eras = unlockedEras(state.progress, demoActive).filter((id) => ERAS[id].codex.length).map((id) => ({
       id,
       name: ERAS[id].name,
       items: ERAS[id].codex.map((c) => ({
@@ -703,7 +789,7 @@ export function boot() {
     state.run = { ...run, status: 'done', deadline: null, remainingMs: 0, completion };
     if (newEra) progress.viewEra = newEra;
     persist();
-    syncTheme();
+    syncTheme({ animate: view === 'home' && !busy && !document.hidden && document.body.dataset.appReady === 'true' });
     if (!already) {
       const names = newEras.map((id) => ERAS[id].name).join('、');
       const text = demoActive
@@ -719,7 +805,8 @@ export function boot() {
       pendingUnlock[demoActive ? 'demo' : 'formal'] = { eraId: newEra, eraIds: newEras, roundId: run.roundId };
     }
     if (view === 'scene' && !busy && allowTransition) {
-      if (newEra) swapSceneEra(newEra);
+      if (newEra && !ERAS[newEra].mapLabel) closeScene();
+      else if (newEra) swapSceneEra(newEra);
       else renderScene();
     }
     return { type: 'focus', newEra, newEras };
@@ -839,6 +926,7 @@ export function boot() {
       persist();
     }
     demoActive = true;
+    places = { ...formalPlaces };
     pendingUnlock.demo = null;
     homeFlash = null;
     homeCommitFailed = false;
@@ -871,6 +959,7 @@ export function boot() {
   function exitDemo() {
     if (!demoActive || busy) return;
     demoActive = false;
+    places = formalPlaces;
     state = formal;
     audioPrefs = formalAudio;
     pendingUnlock.demo = null;
@@ -1015,6 +1104,10 @@ export function boot() {
     'end-break': endBreak,
     'home-pause': homePauseToggle,
     'home-reset': homeResetRequest,
+    'dial-view': () => setDialNear(!dialNear),
+    'dial-scene': browseScene,
+    'civilization-retry': () => syncPlace(),
+    'life-next': () => dial.nextLifePhase(),
     'close-settings': () => ui.closeSettings(),
     'close-codex': () => ui.closeCodex(),
     'open-codex-panel': () => openCodexPanel(scene.getEra()),
@@ -1052,6 +1145,8 @@ export function boot() {
     onSoundEnabled: setSoundEnabled,
     onSoundSelect: selectAmbience,
     onSoundVolume: setSoundVolume,
+    onHomeEra: browseHomeEra,
+    onHomeScene: selectPlace,
     onHomeStart: homeStart,
     onHomeStartIntent: () => { homeCommitFailed = false; },
     onHomeBreak: homeBreak,
@@ -1062,7 +1157,8 @@ export function boot() {
 
   reducedQuery.addEventListener('change', (event) => {
     reduced = event.matches;
-    globe.setReduced(reduced);
+    dial.setReduced(reduced);
+    ui.els.lifeNext.disabled = reduced || !dial.isReady() || ui.els.dialCanvas.dataset.civilizationStatus !== 'ready' || ui.els.dialCanvas.dataset.flipping === 'true';
     scene.setReduced(reduced);
     fx.setReduced(reduced);
     background.setReduced(reduced);
@@ -1072,9 +1168,15 @@ export function boot() {
     if (!document.hidden) checkNow();
   });
 
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !dialNear || view !== 'home') return;
+    if (document.querySelector('dialog[open]') || event.target === ui.els.homeMinutes) return;
+    setDialNear(false);
+  });
+
   window.addEventListener('resize', () => {
     positionHotspots();
-    syncGlobeLayout();
+    syncDialLayout();
   });
 
   window.setInterval(checkNow, 250);
@@ -1093,8 +1195,9 @@ export function boot() {
   renderHome();
   ui.setFitButton(fitMode);
   ui.setDemoMode(false);
+  ui.setDialView(false);
   document.body.dataset.fit = fitMode;
-  globe.setActive(true);
+  dial.setActive(true);
   scene.preload(state.progress.viewEra);
   document.body.dataset.appReady = 'true';
 }

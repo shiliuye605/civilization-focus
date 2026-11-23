@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta
       name="description"
-      content="文明专注：点击地球，进入你的文明场景，开始一轮安静的学习计时。"
+      content="文明专注：点击时钟近看指针，开始一轮安静的学习计时，推进你的文明。"
     />
     <meta name="theme-color" content="#05080e" />
-    <title>文明专注</title>
+    <title>时拓 TerraTock</title>
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23070d16'/%3E%3Ccircle cx='16' cy='15' r='9' fill='%236a8a51'/%3E%3Cpath d='M8 17c4-4 8 3 16-2' stroke='%233f7fa6' stroke-width='2' fill='none'/%3E%3C/svg%3E"
@@ -18,17 +18,39 @@
     <div class="home" id="home">
       <canvas id="bg-canvas" class="bg-canvas" aria-hidden="true"></canvas>
       <canvas
-        id="globe-canvas"
+        id="dial-canvas"
         width="320"
         height="320"
         role="button"
         tabindex="0"
-        aria-label="浏览文明场景：石器时代地球"
+        aria-pressed="false"
+        aria-label="宇宙时钟：点击近看指针"
       ></canvas>
-      <button class="globe-fallback" id="globe-fallback" type="button" hidden>
-        当前浏览器无法显示 3D 地球
+      <button class="dial-fallback" id="dial-fallback" type="button" hidden>
+        当前浏览器无法显示 3D 时钟
         <span>点击进入计时</span>
       </button>
+      <div class="home-top" id="home-top">
+        <img class="home-logo" id="home-logo" src="./src/assets/brand/terratock-logo.webp" width="494" height="240" alt="时拓 TerraTock" draggable="false" />
+        <div class="dial-bar" id="dial-bar">
+          <button type="button" class="dial-chip" id="dial-view-btn" data-action="dial-view" aria-pressed="false" disabled>近看指针</button>
+          <button type="button" class="dial-chip" id="civilization-entry" data-action="dial-scene">文明场景</button>
+        </div>
+        <nav class="home-eras" id="home-eras" aria-label="指针上的文明时代"></nav>
+        <div class="home-locations">
+          <label for="scene-select">地点</label>
+          <select id="scene-select" aria-label="选择当前时代的地点"></select>
+          <button type="button" id="life-next" data-action="life-next" title="仅改变人物生活日程，不影响专注时间" disabled>下一生活时段</button>
+        </div>
+        <div class="place-info">
+          <p id="place-name"></p>
+          <p class="place-note">受地点启发的原创微缩景观 · 各地发展年代不同</p>
+        </div>
+        <div class="civilization-feedback">
+          <p class="civilization-status" id="civilization-status" role="status" hidden></p>
+          <button type="button" id="civilization-retry" data-action="civilization-retry" hidden>重试</button>
+        </div>
+      </div>
       <div class="clock" id="clock" aria-live="off"></div>
       <button
         class="settings-btn home-sound-btn"
@@ -53,6 +75,7 @@
         </svg>
       </button>
       <div class="home-dock" id="home-dock">
+        <p class="dial-session" id="dial-session" hidden><span id="dial-status"></span><span id="dial-count" role="timer" aria-live="off"></span></p>
         <p class="era-caption" id="era-caption">石器聚落 · 距解锁盛唐田园还差 50 分钟</p>
         <div class="home-control" id="home-control" data-state="idle">
           <button type="button" class="home-seg" id="home-pause" data-action="home-pause" data-mode="pause" aria-label="暂停本轮" title="暂停本轮" hidden>

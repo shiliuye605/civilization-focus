@@ -726,6 +726,7 @@ export function createFx(canvas, { reducedMotion = false } = {}) {
   let cells = [];
   let raf = 0;
   let active = false;
+  let coverage = 0;
 
   function layout() {
     canvas.width = window.innerWidth;
@@ -744,18 +745,22 @@ export function createFx(canvas, { reducedMotion = false } = {}) {
   }
 
   function draw(p) {
+    coverage = p;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (p <= 0) return;
     for (const c of cells) {
-      if (c.t > p) continue;
+      const alpha = Math.min(1, Math.max(0, (p * 1.26 - c.t) / 0.26));
+      if (!alpha) continue;
+      ctx.globalAlpha = alpha * alpha * (3 - 2 * alpha);
       const shade = c.tone === 0 ? '#12203a' : c.tone === 1 ? '#0b1526' : c.tone === 2 ? '#0e1a2e' : c.tone === 3 ? '#13223c' : '#0a1220';
       ctx.fillStyle = shade;
       ctx.fillRect(c.x, c.y, 26, 26);
-      if (c.tone === 4 && p > 0.5) {
+      if (c.tone === 4) {
         ctx.fillStyle = 'rgba(240,169,95,0.16)';
         ctx.fillRect(c.x + 8, c.y + 8, 10, 10);
       }
     }
+    ctx.globalAlpha = 1;
   }
 
   function tween(from, to, duration, onDone) {
@@ -767,7 +772,7 @@ export function createFx(canvas, { reducedMotion = false } = {}) {
     }
     const start = performance.now();
     const step = (now) => {
-      const t = Math.min(1, (now - start) / duration);
+      const t = reduced ? 1 : Math.min(1, (now - start) / duration);
       const e = t * t * (3 - 2 * t);
       draw(from + (to - from) * e);
       if (t < 1) raf = requestAnimationFrame(step);
@@ -782,7 +787,7 @@ export function createFx(canvas, { reducedMotion = false } = {}) {
   layout();
   window.addEventListener('resize', () => {
     layout();
-    if (active) draw(1);
+    if (active) draw(coverage);
   });
 
   return {

@@ -183,6 +183,7 @@ export function createScene(canvas, options = {}) {
   let era = 'stone';
   let reduced = Boolean(options.reducedMotion);
   let active = false;
+  let paused = false;
   let raf = 0;
   let last = 0;
   let t0 = performance.now();
@@ -1641,7 +1642,7 @@ export function createScene(canvas, options = {}) {
         layerState.set(eraId, 'ready');
         if (eraId === era) {
           base = null;
-          if (active) draw(reduced ? 1.4 : (performance.now() - t0) / 1000);
+          if (active) draw(now);
         }
       })
       .catch(() => {
@@ -1691,13 +1692,13 @@ export function createScene(canvas, options = {}) {
     else drawStoneDynamic(ctx, t);
   }
 
-  function frame(now) {
+  function frame(stamp) {
     raf = 0;
-    if (!active) return;
+    if (!active || paused || reduced) return;
     raf = requestAnimationFrame(frame);
-    if (now - last < 33) return;
-    last = now;
-    draw(reduced ? 1.4 : (now - t0) / 1000);
+    if (stamp - last < 33) return;
+    last = stamp;
+    draw((stamp - t0) / 1000);
   }
 
   function layout() {
@@ -1734,12 +1735,10 @@ export function createScene(canvas, options = {}) {
     active = true;
     layout();
     preload(era);
-    if (reduced) {
-      draw(1.4);
-      return;
-    }
-    if (!raf) {
+    draw(reduced && !paused ? 1.4 : now);
+    if (!paused && !reduced && !raf) {
       last = performance.now();
+      t0 = last - now * 1000;
       raf = requestAnimationFrame(frame);
     }
   }
@@ -1758,14 +1757,14 @@ export function createScene(canvas, options = {}) {
     preload(era);
     if (active) {
       layout();
-      if (reduced) draw(1.4);
+      draw(now);
     }
   }
 
   window.addEventListener('resize', () => {
     if (active) {
       layout();
-      if (reduced) draw(1.4);
+      if (reduced || paused) draw(now);
     }
   });
 
@@ -1774,13 +1773,22 @@ export function createScene(canvas, options = {}) {
     stop,
     setEra,
     getEra: () => era,
+    setPaused(next) {
+      if (paused === next) return;
+      paused = next;
+      if (!active) return;
+      if (paused) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      } else start();
+    },
     setReduced(next) {
       reduced = next;
       if (active) {
         if (reduced) {
-          stop();
-          active = true;
-          draw(1.4);
+          cancelAnimationFrame(raf);
+          raf = 0;
+          if (!paused) draw(1.4);
         } else start();
       }
     },
@@ -1814,7 +1822,7 @@ export function createScene(canvas, options = {}) {
       fit = mode === 'panorama' ? 'panorama' : 'immersive';
       if (active) {
         layout();
-        if (reduced) draw(1.4);
+        if (reduced || paused) draw(now);
       }
     },
     getFit: () => fit,

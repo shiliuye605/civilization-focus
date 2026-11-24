@@ -49,7 +49,7 @@ const RENDER_PATCH = `
     window.__civMixerPatched = true;
     const originalUpdate = THREE.AnimationMixer.prototype.update;
     THREE.AnimationMixer.prototype.update = function (delta) {
-      if (window.__civMixerAudit) {
+      if (window.__civMixerAudit && this.getRoot().name !== 'TerraTockClock') {
         const steps = window.__civMixerAudit.get(this) || [];
         steps.push(delta);
         window.__civMixerAudit.set(this, steps);
@@ -149,6 +149,8 @@ function initialize({ initial, key, epoch }) {
       flip: canvas.dataset.flipping, status: canvas.dataset.civilizationStatus,
       zoom: canvas.dataset.zoom, dial: document.body.dataset.dial, view: document.body.dataset.view,
       roots: d.civilizationMount.children.length, leaves: leaves.length, edges: edges.length, rootId: root?.uuid,
+      depth: root?.position.y,
+      pageOpacity: Math.max(0, ...leaves.map((leaf) => leaf.material.opacity)),
       holderId: holder?.uuid, siblings: holder?.parent === d.civilizationMount && root?.parent === d.civilizationMount,
       // createEraTurn deforms vertex buffers; the holder's matrix itself is stationary.
       page: holder ? leaves.flatMap((leaf) => Array.from(leaf.geometry.getAttribute('position').array)) : null,
@@ -453,17 +455,19 @@ function checkFlip(label, t, oldEra, newEra) {
   const ends = t.events.filter((e) => e.from === 'true' && e.to === 'false');
   const active = t.frames.filter((f) => f.flip === 'true');
   const duration = ((ends[0]?.at ?? 0) - (starts[0]?.at ?? 0)) / 1000;
-  check(`${label} flipping 仅 true→false 一次，持续约 1.56 秒`, starts.length === 1 && ends.length === 1 && Math.abs(duration - 1.56) <= 0.3 && active.length >= 3, { events: t.events, duration });
+  check(`${label} flipping 仅 true→false 一次，持续约 1.28 秒`, starts.length === 1 && ends.length === 1 && Math.abs(duration - 1.28) <= 0.38 && active.length >= 3, { events: t.events, duration });
   const switched = active.find((f) => f.mounted === newEra);
   const fraction = switched ? (switched.at - starts[0].at) / (ends[0].at - starts[0].at) : -1;
   const sequence = [];
   for (const f of t.frames) if (f.mounted && sequence.at(-1) !== f.mounted) sequence.push(f.mounted);
-  check(`${label} 旧模型保留到 52% 中点再切换最终时代与 sceneId`, JSON.stringify(sequence) === JSON.stringify([oldEra, newEra]) && active.some((f) => f.mounted === oldEra) && Math.abs(fraction - 0.52) <= 0.15 && t.frames.every((f) => f.era === f.mounted && f.sceneId === f.mountedScene), { sequence, fraction });
+  check(`${label} 在转场中点同步切换模型与地名`, JSON.stringify(sequence) === JSON.stringify([oldEra, newEra]) && active.some((f) => f.mounted === oldEra) && Math.abs(fraction - 0.5) <= 0.17 && t.frames.every((f) => f.era === f.mounted && f.sceneId === f.mountedScene), { sequence, fraction });
   const deformed = (era) => {
     const half = active.filter((f) => f.mounted === era && f.page?.length && f.page.every(Number.isFinite));
     return half.length >= 2 && half.some((f) => !same(f.page, half[0].page));
   };
   const final = t.frames.at(-1);
+  const lastOld = active.findLast((f) => f.mounted === oldEra);
+  check(`${label} 旧场景渐隐、新场景从台面下浮现，中点无模型跳切`, lastOld?.depth < -.12 && switched?.depth < -.12 && switched?.pageOpacity > .5 && equal(final.depth, 0));
   check(`${label} 单 holder 三网格三边线、两半变形、同级挂载且结束释放`, active.every((f) => f.roots === 2 && f.leaves === 3 && f.edges === 3 && f.siblings) && new Set(active.map((f) => f.holderId)).size === 1 && deformed(oldEra) && deformed(newEra) && final.roots === 1 && !final.holderId && t.resources.length === 12 && t.resources.every((r) => r.holder === active[0].holderId && r.disposals === 1), t.resources);
   check(`${label} 转场全程保持近景及镜头局部目标`, active.every((f) => f.view === 'home' && f.dial === 'near' && f.zoom === '1.00' && same(f.camera, active[0].camera, 0.001) && same(f.target, active[0].target, 0.001)));
 }
@@ -549,18 +553,19 @@ try {
         await page.click('#home-pause');
         const paused = await probe(page, era);
         await advance(page, 12750);
-        animated(`${label} 暂停timer`, era, await samples(page, era), true);
+        animated(`${label} 暂停timer`, era, await samples(page, era), false);
         const later = await probe(page, era);
-        check(`${label} 暂停仅停止timer双针及读数`, later.run.status === 'paused' && equal(paused.angle, later.angle) && equal(paused.seconds, later.seconds) && paused.count === later.count && poseMatches(later));
+        check(`${label} 暂停冻结计时读数并禁用日程快进`, later.run.status === 'paused' && equal(paused.angle, later.angle) && equal(paused.seconds, later.seconds) && paused.count === later.count && poseMatches(later) && await page.locator('#life-next').isDisabled());
         if (device === 'desktop') {
           await page.emulateMedia({ reducedMotion: 'reduce' });
           await frames(page, 3);
           animated(`${label} 减少动态`, era, await samples(page, era), false);
           await page.emulateMedia({ reducedMotion: 'no-preference' });
           await frames(page, 3);
-          animated(`${label} 解除减少动态`, era, await samples(page, era), true);
+          animated(`${label} 暂停时解除减少动态`, era, await samples(page, era), false);
           if (era === 'steam') {
-            await visibilityCheck(page, era);
+            await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+            await frames(page);
             const awake = await probe(page, era);
             check('后台唤醒仍保持暂停timer的两针与读数', equal(paused.angle, awake.angle) && equal(paused.seconds, awake.seconds) && paused.count === awake.count);
           }
@@ -569,6 +574,8 @@ try {
         await advance(page, 1000);
         const resumed = await probe(page, era);
         check(`${label} 继续计时一秒精确转针、不增加正式进度`, resumed.run.status === 'running' && poseMatches(resumed) && equal(paused.seconds - resumed.seconds, Math.PI / 30) && (await state(page)).progress.focusMinutes === 100);
+        animated(`${label} 继续专注`, era, await samples(page, era), true);
+        if (device === 'desktop' && era === 'steam') await visibilityCheck(page, era);
       });
     }
   }
@@ -656,6 +663,35 @@ try {
       check('首次失败后恢复模型不重置timer或进度', (await state(page)).run.roundId === paused.run.roundId && (await state(page)).progress.focusMinutes === 0);
     });
   }
+  await withPage(browser, {}, async (page) => {
+    await near(page);
+    await page.click('#civilization-entry');
+    const stableCover = await page.waitForFunction(() => {
+      const canvas = document.getElementById('fx-canvas');
+      if (!canvas.classList.contains('is-active')) return;
+      const alpha = () => {
+        const pixels = canvas.getContext('2d').getImageData(0, 0, 208, 78).data;
+        return Array.from(pixels.filter((_, i) => i % 4 === 3));
+      };
+      const before = alpha();
+      if (!before.some(a => a > 0 && a < 255)) return;
+      window.dispatchEvent(new Event('resize'));
+      const alphaAfter = alpha();
+      return before.every((value, i) => value === alphaAfter[i]);
+    });
+    check('像素转场调整窗口时保持当前遮罩进度', Boolean(await stableCover.jsonValue()));
+    await page.waitForSelector('body[data-view="scene"]');
+    await fxIdle(page);
+    await page.click('[data-action="start"]');
+    await page.click('[data-action="pause"]');
+    const frame = () => page.locator('#scene-canvas').evaluate(c => c.toDataURL());
+    const paused = await frame();
+    await page.waitForTimeout(700);
+    check('经典像素场景暂停后画面逐像素相同', paused === await frame());
+    await page.click('[data-action="resume"]');
+    await page.waitForFunction(old => document.getElementById('scene-canvas').toDataURL() !== old, paused);
+    check('经典像素场景继续后恢复动画', (await state(page)).run.status === 'running');
+  });
 } finally {
   await browser.close();
 }

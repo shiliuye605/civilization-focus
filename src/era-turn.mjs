@@ -1,8 +1,8 @@
 import * as T from 'three';
 
 const SEGMENTS=20;
-const DURATION=1.56;
-const SWITCH_BEAT=.52;
+const DURATION=1.28;
+const SWITCH_BEAT=.50;
 const colors={
   stone:['#706c4c','#d4b382'],
   tang:['#6b7352','#d4bc83'],
@@ -28,7 +28,7 @@ function leaf(group,start,end,index) {
   geometry.setAttribute('position',position);
   geometry.setAttribute('color',paint);
   const material=new T.MeshStandardMaterial({name:'Curved terrain page',vertexColors:true,side:T.DoubleSide,roughness:.73,
-    metalness:.17,transparent:true,depthWrite:true,opacity:0});
+    metalness:.17,transparent:true,depthWrite:false,opacity:0});
   const page=new T.Mesh(geometry,material);
   page.frustumCulled=false;
   page.renderOrder=12+index;
@@ -36,7 +36,7 @@ function leaf(group,start,end,index) {
   const edgeGeo=new T.BufferGeometry();
   const edgeAttr=new T.BufferAttribute(new Float32Array(4*3),3);
   edgeGeo.setAttribute('position',edgeAttr);
-  const edgeMat=new T.LineBasicMaterial({color:'#dbc099',transparent:true,opacity:0});
+  const edgeMat=new T.LineBasicMaterial({color:'#dbc099',transparent:true,depthWrite:false,opacity:0});
   const edge=new T.Line(edgeGeo,edgeMat);
   edge.renderOrder=19+index;
   edge.frustumCulled=false;
@@ -65,7 +65,7 @@ export function createEraTurn(mount) {
     const open=ease(local/.27);
     const close=ease((1-local)/.24);
     const widthGain=(.26+.74*open)*(.64+.36*close);
-    const alpha=ease(local/.145)*ease((1-local)/.18);
+    const alpha=.82*ease(local/.22)*ease((1-local)/.25);
     if(alpha<.004){
       sheet.page.visible=false;sheet.edge.visible=false;
       return;
@@ -79,13 +79,12 @@ export function createEraTurn(mount) {
       for(let k=0;k<2;k++){
         const x=k?sheet.end:sheet.start;
         const lengthFraction=(x+1.13)/2.02;
-        const hinge=.49-lengthFraction*.19;
-        const span=(1.00-lengthFraction*.32)*widthGain;
+        const span=(.50-lengthFraction*.16)*widthGain;
         const bend=Math.sin(local*Math.PI);
         const angle=.08+ease(local)*2.93+u*.43*bend;
         const sag=(.003+u*.009)*Math.sin(bend*1.5);
-        const y=.035 + Math.sin(angle)*span*u + sag;
-        const z=hinge - Math.cos(angle)*span*u;
+        const y=.032 + Math.sin(angle)*span*u*.85 + sag;
+        const z=.025 - Math.cos(angle)*span*u;
         const xx=x + (k?1:-1)*u*.003;
         const i=j*2+k;
         sheet.position.setXYZ(i,xx,y,z);
@@ -109,19 +108,20 @@ export function createEraTurn(mount) {
     if(!run)return;
     const current=run;
     run=null;
+    current.onDepth(0);
     holder.visible=false;
     current.onDone?.();
   }
 
   return {
     get active(){return Boolean(run);},
-    start({from,to,onSwap,onDone}) {
+    start({from,to,onDepth,onSwap,onDone}) {
       if(run)return false;
       const a=colors[from]??colors.stone;
       const b=colors[to]??colors.information;
       fromBase.set(a[0]);toBase.set(b[0]);
       for(const page of leaves)page.edgeMat.color.set(b[1]);
-      run={onSwap,onDone,swapped:false};
+      run={onDepth,onSwap,onDone,swapped:false};
       time=0;
       holder.visible=true;
       for(const page of leaves){page.page.visible=false;page.edge.visible=false;}
@@ -133,9 +133,13 @@ export function createEraTurn(mount) {
       const t=T.MathUtils.clamp(time/DURATION,0,1);
       for(const page of leaves)deform(page,t);
       if(t>=SWITCH_BEAT&&!run.swapped){
+        run.onDepth(1);
         run.swapped=true;
         run.onSwap?.();
       }
+      // Hide both terrains at the same point, under the deck, before revealing the new one.
+      const buried=t<SWITCH_BEAT ? ease(t/SWITCH_BEAT) : ease((1-t)/(1-SWITCH_BEAT));
+      run.onDepth(buried);
       if(t===1)finish();
       return true;
     },

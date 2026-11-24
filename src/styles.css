@@ -213,6 +213,7 @@ body[data-theme="information"] {
 }
 
 .place-info p { margin: 0; font-size: 12px; }
+.place-info #place-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .place-info .place-note { font-size: 10px; color: #8393a8; }
 
 .civilization-feedback {

@@ -277,6 +277,7 @@ export function createDial(canvas, options = {}) {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.99;
+    renderer.localClippingEnabled = true;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
 
@@ -340,6 +341,7 @@ export function createDial(canvas, options = {}) {
     civilizationMount = root.getObjectByName('CivilizationMount');
     civilizations = createCivilizations(civilizationMount, {
       reducedMotion: reduced,
+      isPaused: () => getRun().status === 'paused',
       onState: (state) => {
         canvas.dataset.civilization = state.era || '';
         canvas.dataset.scene = state.sceneId || '';
@@ -347,7 +349,6 @@ export function createDial(canvas, options = {}) {
         canvas.dataset.flipping = String(state.flipping);
         drawn = {};
         onCivilizationState?.(state);
-        draw();
       }
     });
     civilizations.setActive(active && !document.hidden);

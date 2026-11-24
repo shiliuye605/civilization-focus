@@ -41,7 +41,9 @@ function disposeAsset(asset) {
   asset.life = null;
 }
 
-export function createCivilizations(mount, { reducedMotion = false, onState = () => {} } = {}) {
+export function createCivilizations(mount, { reducedMotion = false, isPaused = () => false, onState = () => {} } = {}) {
+  const deckPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0.016 - mount.getWorldPosition(new THREE.Vector3()).y);
+  const clippingPlanes = [deckPlane];
   let active = false;
   let reduced = Boolean(reducedMotion);
   let disposed = false;
@@ -51,6 +53,7 @@ export function createCivilizations(mount, { reducedMotion = false, onState = ()
   let pending = null;
   let turn = null;
   let target = null;
+  let animateTarget = true;
   let status = null;
   let lastState = null;
   let dirty = false;
@@ -82,7 +85,6 @@ export function createCivilizations(mount, { reducedMotion = false, onState = ()
     pending = null;
     disposeAsset(old);
     dirty = true;
-    notify();
   }
 
   function finishTurn() {
@@ -94,7 +96,7 @@ export function createCivilizations(mount, { reducedMotion = false, onState = ()
     let asset = null;
     try {
       const gltf = await new GLTFLoader(new THREE.LoadingManager()).loadAsync(MODEL_URLS[`./assets/models/${SCENES[job.id].file}`]);
-      asset = { id: job.id, root: gltf.scene, scenes: gltf.scenes || [], mixer: null, life: null, seconds: 0 };
+      asset = { id: job.id, root: gltf.scene, scenes: gltf.scenes || [], mixer: null, life: null, seconds: 0, depth: 0 };
       if (disposed || job.sequence !== sequence) {
         disposeAsset(asset);
         return;
@@ -111,11 +113,16 @@ export function createCivilizations(mount, { reducedMotion = false, onState = ()
         if (node.isMesh) {
           node.receiveShadow = true;
           node.castShadow = !node.material?.transparent;
+          for (const material of Array.isArray(node.material) ? node.material : [node.material]) {
+            material.clippingPlanes = clippingPlanes;
+            material.clipShadows = true;
+          }
         }
       });
       asset.mixer.setTime(0);
       asset.life = createCivilizationLife(asset.root, job.id);
       asset.life.seek(0);
+      asset.depth = new THREE.Box3().setFromObject(asset.root).max.y + 0.06;
     } catch (error) {
       disposeAsset(asset);
       if (disposed || job.sequence !== sequence) return;
@@ -133,11 +140,16 @@ export function createCivilizations(mount, { reducedMotion = false, onState = ()
       turn.start({
         from: SCENES[current.id].era,
         to: SCENES[job.id].era,
+        onDepth: (buried) => {
+          current.root.position.y = -current.depth * buried;
+          current.root.visible = buried < 1;
+        },
         onSwap: installPending,
         onDone: () => {
           turn.dispose();
           turn = null;
           dirty = true;
+          if (current.id !== target) requestTarget();
           notify();
         }
       });
@@ -145,30 +157,36 @@ export function createCivilizations(mount, { reducedMotion = false, onState = ()
     notify();
   }
 
-  function setScene(id, { animate = true } = {}) {
-    if (disposed) return;
-    if (!Object.hasOwn(SCENES, id)) throw new RangeError(`Unknown scene: ${id}`);
-    if (target === id && status !== 'error') return;
+  function requestTarget() {
     sequence += 1;
     request = null;
-    cancelTurn();
-    target = id;
-    if (current?.id === id) {
+    if (current?.id === target) {
       status = 'ready';
       notify();
       return;
     }
-    const job = { id, sequence, animate: Boolean(animate && current && active && !document.hidden && !reduced) };
+    const job = { id: target, sequence, animate: Boolean(animateTarget && current && active && !document.hidden && !reduced) };
     request = job;
     status = 'loading';
     notify();
     void loadTarget(job);
   }
 
+  function setScene(id, { animate = true } = {}) {
+    if (disposed) return;
+    if (!Object.hasOwn(SCENES, id)) throw new RangeError(`Unknown scene: ${id}`);
+    if (target === id && status !== 'error') return;
+    target = id;
+    animateTarget = animate;
+    // Finish revealing the current destination, then serve only the newest selection.
+    if (turn?.active) notify();
+    else requestTarget();
+  }
+
   function update(deltaSeconds) {
     if (disposed || !active || document.hidden) return false;
     if (!reduced) {
-      if (current) {
+      if (current && !isPaused()) {
         current.seconds += deltaSeconds;
         current.mixer.update(deltaSeconds);
         // 地点日程拥有角色姿态；环境剪辑先求值，避免旧人物剪辑覆盖日程。
@@ -194,12 +212,6 @@ export function createCivilizations(mount, { reducedMotion = false, onState = ()
     if (disposed || reduced === Boolean(next)) return;
     reduced = Boolean(next);
     if (reduced) {
-      for (const asset of [current, pending]) {
-        if (!asset) continue;
-        asset.seconds = 0;
-        asset.mixer.setTime(0);
-        asset.life.seek(0);
-      }
       finishTurn();
       dirty = true;
     }
@@ -207,7 +219,7 @@ export function createCivilizations(mount, { reducedMotion = false, onState = ()
   }
 
   function nextPhase() {
-    if (!current || reduced || !active || document.hidden || turn?.active) return;
+    if (!current || reduced || !active || document.hidden || turn?.active || isPaused()) return;
     current.seconds = nextLifePhase(current.seconds);
     current.mixer.setTime(current.seconds);
     current.life.seek(current.seconds);

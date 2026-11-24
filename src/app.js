@@ -88,7 +88,7 @@ export function boot() {
     onCivilizationState: (status) => {
       ui.setCivilizationStatus(status, SCENES[status.target].label);
       ui.setPlaceInfo(status.sceneId ? SCENES[status.sceneId] : null);
-      ui.els.lifeNext.disabled = reduced || status.status !== 'ready' || status.flipping;
+      syncLifeControl();
       syncDialLayout();
     }
   });
@@ -387,6 +387,7 @@ export function boot() {
   }
 
   function renderScene() {
+    scene.setPaused(state.run.status === 'paused');
     ui.renderScene(buildSceneVM());
   }
 
@@ -453,7 +454,13 @@ export function boot() {
     vm.statusLabel = `${demoActive ? '演示 · ' : ''}${state.run.mode === 'break' ? '休息' : '专注'} · ${state.run.status === 'paused' ? '已暂停' : state.run.status === 'done' ? '已完成' : '进行中'}`;
     vm.inputLocked = homeDirty || document.activeElement === ui.els.homeMinutes;
     ui.renderHome(vm);
+    syncLifeControl();
     syncDialLayout();
+  }
+
+  function syncLifeControl() {
+    const { civilizationStatus, flipping } = ui.els.dialCanvas.dataset;
+    ui.els.lifeNext.disabled = reduced || state.run.status === 'paused' || civilizationStatus !== 'ready' || flipping === 'true';
   }
 
   function applySettings(next) {
@@ -641,8 +648,8 @@ export function boot() {
         syncAmbience();
         dial.setActive(false);
         if (ERAS[clampViewEra()].mapLabel) scene.setEra(clampViewEra());
-        scene.start();
         renderScene();
+        scene.start();
         positionHotspots();
         fx.reveal(430, () => {
           document.body.classList.remove('is-zooming');
@@ -1164,7 +1171,7 @@ export function boot() {
   reducedQuery.addEventListener('change', (event) => {
     reduced = event.matches;
     dial.setReduced(reduced);
-    ui.els.lifeNext.disabled = reduced || !dial.isReady() || ui.els.dialCanvas.dataset.civilizationStatus !== 'ready' || ui.els.dialCanvas.dataset.flipping === 'true';
+    syncLifeControl();
     scene.setReduced(reduced);
     fx.setReduced(reduced);
     background.setReduced(reduced);

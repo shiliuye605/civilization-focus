@@ -99,7 +99,10 @@ async function sample(p) {
       id:root?.userData.sceneId, uuid:root?.uuid, p:root?.position.toArray(), q:root?.quaternion.toArray(), s:root?.scale.toArray(), internalScale:root?.children[0].scale.toArray(),
       seconds:asset?.seconds, activity:asset?.life?.activity(), posed,
       districts: ['BackQuarter','Forebank','ServiceLane'].map(name=>root?.getObjectByName(name)?.geometry?.attributes.position.count ?? 0),
-      deliveries: ['WestCourier','EastCourier'].every(name=>!!root?.getObjectByName(name)),
+      deliveries: ['WestCourier','EastCourier'].flatMap(name=>{
+        const courier=root?.getObjectByName(name);
+        return courier ? [...courier.position.toArray(), ...courier.children.map(child=>child.rotation.z)] : [];
+      }),
       camera:d.focusHand.worldToLocal(d.camera.position.clone()).toArray(), target:d.focusHand.worldToLocal(d.target.clone()).toArray(), world:root?.matrixWorld.toArray(),
       angle:d.focusHand.rotation.y, box:{l,r,t,b}, top:rect('home-top'), dock:rect('home-dock'), select:rect('scene-select'), width:innerWidth,height:innerHeight,
       fits:l>=0&&r<=innerWidth&&t>=0&&b<=innerHeight, scroll:document.documentElement.scrollWidth>innerWidth, flips:window.__flips,
@@ -132,7 +135,7 @@ try {
         await choose(p,id);
         const s=await sample(p);
         check(`${width} ${id} 模型独立加载且内缩放保留`, s.id===id && same(s.p,[0,0,0]) && same(s.q,[0,0,0,1]) && same(s.s,[1,1,1]) && same(s.internalScale,[.89,.89,.89]));
-        check(`${width} ${id} 前后地块、交通带和搬运角色均已安装`, s.districts.every(n=>n>250) && s.deliveries);
+        check(`${width} ${id} 前后地块、交通带和搬运角色均已安装`, s.districts.every(n=>n>250) && s.deliveries.length===12);
         check(`${width} ${id} 地点人物日程与取景正确`, s.activity.length >=4 && s.fits && s.box.t>s.top.b && s.box.b<s.dock.t && !s.scroll, {box:s.box,top:s.top,dock:s.dock});
         check(`${width} ${id} 中文地名及大区域显示`, (await p.textContent('#place-name')).includes(SCENES[id].label) && (await p.textContent('#place-name')).includes(SCENES[id].region));
         const formal=await state(p); check(`${width} ${id} 地点选择不增加专注进度`, formal.progress.focusMinutes===150 && formal.progress.completedRounds===0 && formal.run.status==='idle');
@@ -151,13 +154,18 @@ try {
     const after=await sample(p);
     check('指针转动带动文明，镜头局部绑定不变',!same(start.world,after.world)&&same(start.camera,after.camera)&&same(start.target,after.target)&&after.count==='23:59');
     await p.click('#home-pause'); const paused=await sample(p); await p.waitForTimeout(450); const later=await sample(p);
-    check('暂停专注不冻结场景生活',same(paused.camera,later.camera)&&paused.angle===later.angle&&paused.count===later.count&&later.seconds>paused.seconds);
+    check('暂停专注冻结居民和搬运角色',same(paused.camera,later.camera)&&paused.angle===later.angle&&paused.count===later.count&&later.seconds===paused.seconds&&same(paused.posed,later.posed)&&same(paused.deliveries,later.deliveries));
     await p.emulateMedia({reducedMotion:'reduce'}); await sleepFrames(p); const reduced=await sample(p); await p.waitForTimeout(450); const still=await sample(p);
     check('减少动态为静帧并禁用日程快进',same(reduced.posed,still.posed)&&reduced.seconds===still.seconds&&await p.locator('#life-next').isDisabled());
     await choose(p,'helsinki'); check('减少动态跨地点即时且无翻页', (await sample(p)).flips===still.flips);
     await p.emulateMedia({reducedMotion:'no-preference'}); await sleepFrames(p);
+    await choose(p,'silicon');
+    const reopened = await sample(p); await p.waitForTimeout(400);
+    check('暂停中允许完整翻页，新地点也冻结生活日程', reopened.flips===still.flips+1 && (await sample(p)).seconds === reopened.seconds);
+    await p.click('#home-pause'); await sleepFrames(p);
+    check('继续计时恢复地点生活日程', (await sample(p)).seconds > reopened.seconds);
     const background=await p.evaluate(async()=>{
-      const a=window.__assets.find(a=>a.root.parent&&a.root.userData.sceneId==='helsinki');
+      const a=window.__assets.find(a=>a.root.parent&&a.root.userData.sceneId==='silicon');
       Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});document.dispatchEvent(new Event('visibilitychange'));
       const before=a.seconds;await new Promise(r=>setTimeout(r,1100));const hidden=a.seconds;
       delete document.hidden;document.dispatchEvent(new Event('visibilitychange'));await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
@@ -201,7 +209,12 @@ try {
     const requestedPromise=new Promise(r=>requested=r);const gate=new Promise(r=>release=r);
     const p=await open(browser,{route:async p=>p.route('**/olduvai.glb',async r=>{const response=await r.fetch();requested();await gate;await r.fulfill({response});})});await ready(p,'stone');await near(p);await p.selectOption('#scene-select','olduvai');await requestedPromise;await choose(p,'vezere');const latest=await sample(p);release();await p.waitForTimeout(500);
     check('慢请求迟到不能覆盖最后选择',(await sample(p)).uuid===latest.uuid&&await p.inputValue('#scene-select')==='vezere');
-    await p.selectOption('#scene-select','patagonia');await p.waitForSelector('#dial-canvas[data-flipping=true]');await p.selectOption('#scene-select','zhoukoudian');await ready(p,'zhoukoudian');
+    await p.selectOption('#scene-select','patagonia');await p.waitForSelector('#dial-canvas[data-flipping=true]');
+    const currentTurn = () => p.evaluate(() => window.__dial.civilizationMount.getObjectByName('CivilizationPageTurn')?.uuid);
+    const turnId = await currentTurn();
+    await p.selectOption('#scene-select','stone');await p.selectOption('#scene-select','zhoukoudian');
+    check('连续改选不打断正在播放的翻页',turnId && turnId===await currentTurn());
+    await ready(p,'zhoukoudian');
     check('翻页中再选地点最终只挂一个正确模型',(await p.evaluate(()=>window.__dial.civilizationMount.children.filter(n=>n.userData.sceneId).length))===1);await close(p);
   }
   {

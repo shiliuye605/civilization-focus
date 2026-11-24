@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { remainingOf } from './timer.js';
+import { dialOriginOf, elapsedOf } from './timer.js';
 import { createCivilizations } from './civilizations.js';
 import { createSettlementInspection } from './settlement-inspection.js';
 import modelUrl from './assets/models/terratock-clock.glb?url';
@@ -39,19 +39,17 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const mix = (a, b, t) => a + (b - a) * t;
 
 export function handPose(run, now) {
-  const elapsedMs = Math.min(run.durationMs, Math.max(0, run.durationMs - remainingOf(run, now)));
-  const sweep = (MINUTE_STEP * elapsedMs) / 60000;
-  let seconds = elapsedMs / 1000;
-  if (run.status === 'idle') {
-    const local = new Date(now);
-    seconds = local.getHours() * 3600 + local.getMinutes() * 60 + local.getSeconds() + local.getMilliseconds() / 1000;
-  }
+  const elapsed = elapsedOf(run, now) / 1000;
+  const origin = dialOriginOf(run, now);
+  const sweep = MINUTE_STEP * elapsed / 60;
+  const arcStart = TWELVE_OCLOCK - TAU * (origin % 3600) / 3600;
   return {
     sweep,
-    focusAngle: TWELVE_OCLOCK - TAU * (run.status === 'idle' ? seconds % 3600 : seconds) / 3600,
-    secondsAngle: TWELVE_OCLOCK - TAU * (run.status === 'idle' ? seconds % 60 : seconds) / 60,
-    hourAngle: TWELVE_OCLOCK - TAU * (seconds % 43200) / 43200,
-    mechanismSeconds: seconds
+    arcStart,
+    focusAngle: arcStart - sweep,
+    secondsAngle: TWELVE_OCLOCK - TAU * ((origin % 60) + elapsed) / 60,
+    hourAngle: TWELVE_OCLOCK - TAU * ((origin + elapsed) % 43200) / 43200,
+    mechanismSeconds: origin + elapsed
   };
 }
 
@@ -71,11 +69,11 @@ function makeProgressArc() {
   mesh.frustumCulled = false;
   return {
     mesh,
-    update(sweep, mode) {
+    update(start, sweep, mode) {
       const span = Math.min(TAU, sweep);
       const steps = Math.max(1, Math.ceil((span * maxSegments) / TAU));
       for (let i = 0; i <= steps; i += 1) {
-        const theta = TWELVE_OCLOCK - span * (i / steps);
+        const theta = start - span * (i / steps);
         position.setXYZ(i * 2, Math.cos(theta) * 2.661, 0.026, -Math.sin(theta) * 2.661);
         position.setXYZ(i * 2 + 1, Math.cos(theta) * 2.705, 0.026, -Math.sin(theta) * 2.705);
       }
@@ -110,7 +108,7 @@ export function createDial(canvas, options = {}) {
   let lastFrame = 0;
   let vw = window.innerWidth;
   let vh = window.innerHeight;
-  let insets = { top: 0, nearTop: 0, bottom: 0, nearBottom: 0 };
+  let insets = { top: 0, nearTop: 0, bottom: 0, framingBottom: 0 };
   let far = null;
   let nearFit = null;
   let layoutVersion = 0;
@@ -191,7 +189,7 @@ export function createDial(canvas, options = {}) {
     vh = window.innerHeight;
     probe.aspect = vw / vh;
     probe.updateProjectionMatrix();
-    const bottom = vh - insets.bottom;
+    const bottom = vh - insets.framingBottom;
     const padX = Math.max(16, vw * 0.04);
     far = fit(
       (s) => {
@@ -210,7 +208,7 @@ export function createDial(canvas, options = {}) {
         probe.lookAt(NEAR_ANCHOR);
       },
       SETTLEMENT_POINTS,
-      areaOf(nearPad, insets.nearTop, vw - nearPad, vh - insets.nearBottom),
+      areaOf(nearPad, insets.nearTop, vw - nearPad, bottom),
       0.68,
       8
     );
@@ -369,11 +367,12 @@ export function createDial(canvas, options = {}) {
       drawn.seconds === pose.secondsAngle &&
       drawn.hour === pose.hourAngle &&
       drawn.sweep === pose.sweep &&
+      drawn.arcStart === pose.arcStart &&
       drawn.mode === run.mode &&
       drawn.progress === progress &&
       drawn.layout === layoutVersion
     ) return;
-    drawn = { focus: pose.focusAngle, seconds: pose.secondsAngle, hour: pose.hourAngle, sweep: pose.sweep, mode: run.mode, progress, layout: layoutVersion };
+    drawn = { focus: pose.focusAngle, seconds: pose.secondsAngle, hour: pose.hourAngle, sweep: pose.sweep, arcStart: pose.arcStart, mode: run.mode, progress, layout: layoutVersion };
 
     // An imported quaternion can decompose into nonzero X and Z Euler angles.
     // Each hand has exactly one physical axis, independent of its exported pose.
@@ -385,7 +384,7 @@ export function createDial(canvas, options = {}) {
       mechanism.setTime(phase);
       sampledPhase = phase;
     }
-    arc.update(pose.sweep, run.mode);
+    arc.update(pose.arcStart, pose.sweep, run.mode);
     clock.updateMatrixWorld(true);
 
     // 两个向量在转动的指针局部系里成对变换，世界 +Y 固定为上方，指针转动时镜头不会翻滚。
@@ -456,9 +455,9 @@ export function createDial(canvas, options = {}) {
     const top = Math.max(0, Math.round(next.top));
     const nearTop = Math.max(0, Math.round(next.nearTop));
     const bottom = Math.max(0, Math.round(next.bottom));
-    const nearBottom = Math.max(0, Math.round(next.nearBottom));
-    if (top === insets.top && nearTop === insets.nearTop && bottom === insets.bottom && nearBottom === insets.nearBottom) return;
-    insets = { top, nearTop, bottom, nearBottom };
+    const framingBottom = Math.max(0, Math.round(next.framingBottom));
+    if (top === insets.top && nearTop === insets.nearTop && bottom === insets.bottom && framingBottom === insets.framingBottom) return;
+    insets = { top, nearTop, bottom, framingBottom };
     computeLayout();
     draw();
   }

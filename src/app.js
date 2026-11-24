@@ -443,7 +443,7 @@ export function boot() {
       top: top.offsetTop + top.offsetHeight + gap / 2,
       nearTop: top.offsetTop + top.offsetHeight + gap / 2,
       bottom: dockInset,
-      nearBottom: dockInset + timerSpace
+      framingBottom: dockInset + timerSpace
     });
   }
 
@@ -535,7 +535,7 @@ export function boot() {
       return;
     }
     if (state.run.status === 'idle' || (state.run.status === 'done' && state.run.mode === 'focus')) {
-      state.run = startRun('focus', focusMs(), Date.now());
+      state.run = startRun('focus', focusMs(), Date.now(), run);
       pendingUnlock[demoActive ? 'demo' : 'formal'] = null;
       homeFlash = null;
       persist();
@@ -549,7 +549,7 @@ export function boot() {
     if (busy || view === 'scene') return;
     settleIfDue(Date.now());
     if (state.run.status !== 'done' || state.run.mode !== 'focus') return;
-    state.run = startRun('break', breakMs(), Date.now());
+    state.run = startRun('break', breakMs(), Date.now(), state.run);
     pendingUnlock[demoActive ? 'demo' : 'formal'] = null;
     homeFlash = null;
     persist();
@@ -827,7 +827,7 @@ export function boot() {
     settleIfDue(Date.now());
     const run = state.run;
     if (!(run.status === 'idle' || (run.status === 'done' && run.mode === 'focus'))) return;
-    state.run = startRun('focus', focusMs(), Date.now());
+    state.run = startRun('focus', focusMs(), Date.now(), run);
     pendingUnlock[demoActive ? 'demo' : 'formal'] = null;
     homeFlash = null;
     persist();
@@ -839,7 +839,7 @@ export function boot() {
   function startBreak() {
     settleIfDue(Date.now());
     if (state.run.status !== 'done' || state.run.mode !== 'focus') return;
-    state.run = startRun('break', breakMs(), Date.now());
+    state.run = startRun('break', breakMs(), Date.now(), state.run);
     pendingUnlock[demoActive ? 'demo' : 'formal'] = null;
     homeFlash = null;
     persist();

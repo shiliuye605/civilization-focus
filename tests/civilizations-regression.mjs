@@ -319,7 +319,9 @@ function fits(box, width, height) {
 const disjoint = (a, b) => a.r <= b.l || a.l >= b.r || a.b <= b.t || a.t >= b.b;
 function poseMatches(s) {
   const elapsed = Math.min(s.run.durationMs, Math.max(0, s.run.durationMs - s.remaining));
-  return equal(s.angle, Math.PI / 2 - Math.PI / 30 * elapsed / 60000) && equal(s.seconds, Math.PI / 2 - Math.PI * 2 * elapsed / 60000);
+  const origin = s.run.dialOriginSeconds ?? 0;
+  return equal(s.angle, Math.PI / 2 - Math.PI / 30 * ((origin % 3600) + elapsed / 1000) / 60)
+    && equal(s.seconds, Math.PI / 2 - Math.PI / 30 * ((origin % 60) + elapsed / 1000));
 }
 function checkGeometry(label, s) {
   check(`${label} GLTF 单根单位变换、内部缩放及翻页清理正确`, s.roots === 1 && s.parentOK && !s.leaf && s.sceneId === s.era && same(s.rootPosition, [0, 0, 0]) && same(s.rootQuaternion, [0, 0, 0, 1]) && same(s.rootScale, [1, 1, 1]) && same(s.contentScale, [0.89, 0.89, 0.89]), s);

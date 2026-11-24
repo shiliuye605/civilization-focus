@@ -24,7 +24,7 @@ export function createIdleRun(focusMs) {
   };
 }
 
-export function startRun(mode, durationMs, now) {
+export function startRun(mode, durationMs, now, previous = null) {
   return {
     mode,
     status: 'running',
@@ -32,6 +32,7 @@ export function startRun(mode, durationMs, now) {
     deadline: now + durationMs,
     remainingMs: null,
     roundId: newRoundId(),
+    dialOriginSeconds: previous ? dialOriginOf(previous, now) + elapsedOf(previous, now) / 1000 : localSeconds(now),
     completion: null
   };
 }
@@ -67,6 +68,19 @@ export function remainingOf(run, now) {
   }
   if (run.status === 'done') return 0;
   return run.durationMs;
+}
+
+export function elapsedOf(run, now) {
+  return Math.min(run.durationMs, Math.max(0, run.durationMs - remainingOf(run, now)));
+}
+
+function localSeconds(now) {
+  const time = new Date(now);
+  return time.getHours() * 3600 + time.getMinutes() * 60 + time.getSeconds() + time.getMilliseconds() / 1000;
+}
+
+export function dialOriginOf(run, now) {
+  return run.status === 'idle' ? localSeconds(now) : (run.dialOriginSeconds ?? 0);
 }
 
 export function isDue(run, now) {

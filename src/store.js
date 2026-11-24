@@ -98,6 +98,9 @@ function normalizeRun(raw, settings) {
     deadline,
     remainingMs,
     roundId: typeof raw.roundId === 'string' && raw.roundId ? raw.roundId : null,
+    ...(typeof raw.dialOriginSeconds === 'number' && Number.isFinite(raw.dialOriginSeconds) && raw.dialOriginSeconds >= 0
+      ? { dialOriginSeconds: raw.dialOriginSeconds }
+      : {}),
     completion: status === 'done' ? normalizeCompletion(raw.completion) : null
   };
 }

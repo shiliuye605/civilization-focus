@@ -274,7 +274,8 @@ export function createUI() {
     els.dialViewBtn.textContent = near ? '返回全景' : '近看指针';
     els.dialViewBtn.setAttribute('aria-pressed', String(near));
     els.dialCanvas.setAttribute('aria-pressed', String(near));
-    els.dialCanvas.setAttribute('aria-label', near ? '宇宙时钟：正在随指针观察，按回车返回全景' : '宇宙时钟：点击近看指针');
+    els.dialCanvas.setAttribute('aria-label', near ? '宇宙时钟近景。使用加减键缩放，左右方向键移动，回车返回全景' : '宇宙时钟：点击近看指针');
+    els.dialCanvas.title = near ? '滚轮或双指缩放，放大后可左右拖动' : '点击近看指针';
   }
 
   function setHomeEras(eras, current) {

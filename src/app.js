@@ -434,10 +434,16 @@ export function boot() {
     const gap = window.innerWidth < 700 || window.innerHeight < 620 ? 16 : 24;
     // dock-in 入场动画会移动 getBoundingClientRect，用不受 transform 影响的几何量取最终留白
     const bottom = parseFloat(getComputedStyle(dock).bottom) || 0;
+    const dockInset = bottom + dock.offsetHeight + gap;
+    // Keep the camera distance stable when the timer row appears.
+    const timerSpace = ui.els.dialSession.hidden
+      ? parseFloat(getComputedStyle(ui.els.dialCount).lineHeight) + parseFloat(getComputedStyle(dock).rowGap)
+      : 0;
     dial.setInsets({
       top: top.offsetTop + top.offsetHeight + gap / 2,
       nearTop: top.offsetTop + top.offsetHeight + gap / 2,
-      bottom: bottom + dock.offsetHeight + gap
+      bottom: dockInset,
+      nearBottom: dockInset + timerSpace
     });
   }
 

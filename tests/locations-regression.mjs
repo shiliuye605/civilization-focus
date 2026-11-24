@@ -98,6 +98,8 @@ async function sample(p) {
     return {
       id:root?.userData.sceneId, uuid:root?.uuid, p:root?.position.toArray(), q:root?.quaternion.toArray(), s:root?.scale.toArray(), internalScale:root?.children[0].scale.toArray(),
       seconds:asset?.seconds, activity:asset?.life?.activity(), posed,
+      districts: ['BackQuarter','Forebank','ServiceLane'].map(name=>root?.getObjectByName(name)?.geometry?.attributes.position.count ?? 0),
+      deliveries: ['WestCourier','EastCourier'].every(name=>!!root?.getObjectByName(name)),
       camera:d.focusHand.worldToLocal(d.camera.position.clone()).toArray(), target:d.focusHand.worldToLocal(d.target.clone()).toArray(), world:root?.matrixWorld.toArray(),
       angle:d.focusHand.rotation.y, box:{l,r,t,b}, top:rect('home-top'), dock:rect('home-dock'), select:rect('scene-select'), width:innerWidth,height:innerHeight,
       fits:l>=0&&r<=innerWidth&&t>=0&&b<=innerHeight, scroll:document.documentElement.scrollWidth>innerWidth, flips:window.__flips,
@@ -130,6 +132,7 @@ try {
         await choose(p,id);
         const s=await sample(p);
         check(`${width} ${id} 模型独立加载且内缩放保留`, s.id===id && same(s.p,[0,0,0]) && same(s.q,[0,0,0,1]) && same(s.s,[1,1,1]) && same(s.internalScale,[.89,.89,.89]));
+        check(`${width} ${id} 前后地块、交通带和搬运角色均已安装`, s.districts.every(n=>n>250) && s.deliveries);
         check(`${width} ${id} 地点人物日程与取景正确`, s.activity.length >=4 && s.fits && s.box.t>s.top.b && s.box.b<s.dock.t && !s.scroll, {box:s.box,top:s.top,dock:s.dock});
         check(`${width} ${id} 中文地名及大区域显示`, (await p.textContent('#place-name')).includes(SCENES[id].label) && (await p.textContent('#place-name')).includes(SCENES[id].region));
         const formal=await state(p); check(`${width} ${id} 地点选择不增加专注进度`, formal.progress.focusMinutes===150 && formal.progress.completedRounds===0 && formal.run.status==='idle');

@@ -295,7 +295,7 @@ function probeInPage(names) {
   const remaining = run.status === 'running' ? Math.max(0, run.deadline - Date.now()) : run.status === 'paused' ? run.remainingMs : run.status === 'done' ? 0 : run.durationMs;
   return {
     width: innerWidth, height: innerHeight, era: window.__mountedEra(root),
-    model: bounds(root), hand: bounds(d.focusHand), rootId: root?.uuid,
+    model: bounds(root), topPanel: rect('#home-top'), rootId: root?.uuid,
     sceneId: window.__mountedScene(root), contentScale: content?.scale.toArray(),
     rootPosition: root?.position.toArray(), rootQuaternion: root?.quaternion.toArray(), rootScale: root?.scale.toArray(),
     rootWorld: root?.matrixWorld.toArray(), rootInFocus: root ? d.focusHand.matrixWorld.clone().invert().multiply(root.matrixWorld).toArray() : null,
@@ -316,16 +316,16 @@ const probe = (page, era) => page.evaluate(probeInPage, NODES[era] || []);
 function fits(box, width, height) {
   return box.vertices > 0 && [box.l, box.r, box.t, box.b, box.near, box.far].every(Number.isFinite) && box.l >= -1 && box.r <= width + 1 && box.t >= -1 && box.b <= height + 1 && box.near >= -1 && box.far <= 1;
 }
-const pointFits = (p, s) => p.every(Number.isFinite) && p[0] >= 0 && p[0] <= s.width && p[1] >= 0 && p[1] <= s.height && p[2] >= -1 && p[2] <= 1;
 const disjoint = (a, b) => a.r <= b.l || a.l >= b.r || a.b <= b.t || a.t >= b.b;
 function poseMatches(s) {
   const elapsed = Math.min(s.run.durationMs, Math.max(0, s.run.durationMs - s.remaining));
-  return equal(s.angle, Math.PI / 6 - Math.PI / 30 * elapsed / 60000) && equal(s.seconds, 2.14 - Math.PI * 2 * elapsed / 60000);
+  return equal(s.angle, Math.PI / 2 - Math.PI / 30 * elapsed / 60000) && equal(s.seconds, Math.PI / 2 - Math.PI * 2 * elapsed / 60000);
 }
 function checkGeometry(label, s) {
   check(`${label} GLTF 单根单位变换、内部缩放及翻页清理正确`, s.roots === 1 && s.parentOK && !s.leaf && s.sceneId === s.era && same(s.rootPosition, [0, 0, 0]) && same(s.rootQuaternion, [0, 0, 0, 1]) && same(s.rootScale, [1, 1, 1]) && same(s.contentScale, [0.89, 0.89, 0.89]), s);
-  check(`${label} 模型、轴心、针尖完整可见且不挡 logo/nav/dock`, fits(s.model, s.width, s.height) && fits(s.hand, s.width, s.height) && pointFits(s.pivot, s) && pointFits(s.tip, s) && s.pivot[0] < s.tip[0] && [s.logo, s.nav, s.bar, s.dock].every((r) => disjoint(s.model, r) && disjoint(s.hand, r)) && s.logoLoaded && s.noScroll && s.controls.l >= 0 && s.controls.r <= s.width && s.controls.b <= s.height, { model: s.model, hand: s.hand, pivot: s.pivot, tip: s.tip, logo: s.logo, nav: s.nav, dock: s.dock });
-  check(`${label} 真实低位近景、镜头目标位于专注针局部坐标系`, same(s.target, [1.57, 0.25, 0]) && same(s.up, [0, 1, 0]) && s.camera[1] > 0.3 && s.camera[2] > 0 && (s.camera[1] - 0.25) / s.camera[2] < 0.4);
+  const minLandscapeWidth = Math.min(s.width * .66, (s.dock.t - s.topPanel.b) * 2);
+  check(`${label} 聚落占足可用画面且不挡顶部面板及底部操作`, fits(s.model, s.width, s.height) && s.model.r-s.model.l > minLandscapeWidth && s.pivot[0] < s.tip[0] && disjoint(s.model, s.topPanel) && disjoint(s.model, s.dock) && s.logoLoaded && s.noScroll && s.controls.l >= 0 && s.controls.r <= s.width && s.controls.b <= s.height, { model: s.model, top: s.topPanel, dock: s.dock });
+  check(`${label} 真实低位近景、镜头目标位于专注针局部坐标系`, same(s.target, [1.67, 0.43, 0]) && same(s.up, [0, 1, 0]) && s.camera[1] > 0.43 && s.camera[2] > 0 && (s.camera[1] - 0.43) / s.camera[2] < 0.4);
 }
 async function samples(page, era) {
   const result = [await page.evaluate((names) => window.__nodePoses(names), NODES[era])];

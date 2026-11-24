@@ -3,12 +3,12 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { remainingOf } from './timer.js';
 import { createCivilizations } from './civilizations.js';
+import { createSettlementInspection } from './settlement-inspection.js';
 import modelUrl from './assets/models/terratock-clock.glb?url';
 
 const TAU = Math.PI * 2;
 const DEG = 180 / Math.PI;
-const HAND_REST_ANGLE = Math.PI / 6;
-const SECONDS_REST_ANGLE = 2.14;
+const TWELVE_OCLOCK = Math.PI / 2;
 const MINUTE_STEP = Math.PI / 30;
 
 const FOV = 40;
@@ -17,8 +17,8 @@ const MOVE_MS = 880;
 const HOME_TARGET = new THREE.Vector3(0, 0.06, 0);
 const HOME_DIR = new THREE.Vector3(0, 11.75, 6.15);
 // 近景的观察目标与镜头偏移都在 FocusHandPivot 的局部系里，局部 +X 通向针尖。
-const NEAR_ANCHOR = new THREE.Vector3(1.57, 0.25, 0);
-const NEAR_OFFSET = new THREE.Vector3(1.23, 1.32, 4.17);
+const NEAR_ANCHOR = new THREE.Vector3(1.67, 0.43, 0);
+const NEAR_OFFSET = new THREE.Vector3(0.61, 0.91, 2.48);
 
 const RIM_POINTS = [];
 for (let i = 0; i < 48; i += 1) {
@@ -27,13 +27,12 @@ for (let i = 0; i < 48; i += 1) {
     RIM_POINTS.push(new THREE.Vector3(Math.cos(a) * RIM_RADIUS, y, Math.sin(a) * RIM_RADIUS));
   }
 }
-const HAND_POINTS = [
-  [-0.283, 0.26, 0], [0, 0.27, 0.283], [0, 0.27, -0.283], [-0.26, 0.1, 0.09],
-  [0.52, 0.1, 0.435], [0.52, 0.3, -0.435], [1.12, 0.1, 0.415], [1.12, 0.3, -0.415],
-  [3.24, 0.1, 0], [3.24, 0.24, 0]
-].map((p) => new THREE.Vector3(...p));
-for (const x of [0.69, 2.66]) {
-  for (const z of [-0.28, 0.28]) HAND_POINTS.push(new THREE.Vector3(x, 0.84, z));
+// Fit the outer bounds of the terrain and skyline, including their full depth.
+const SETTLEMENT_POINTS = [];
+for (const x of [0.67, 2.69]) {
+  for (const y of [0.30, 0.76]) {
+    for (const z of [-0.52, 0.52]) SETTLEMENT_POINTS.push(new THREE.Vector3(x, y, z));
+  }
 }
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -42,10 +41,17 @@ const mix = (a, b, t) => a + (b - a) * t;
 export function handPose(run, now) {
   const elapsedMs = Math.min(run.durationMs, Math.max(0, run.durationMs - remainingOf(run, now)));
   const sweep = (MINUTE_STEP * elapsedMs) / 60000;
+  let seconds = elapsedMs / 1000;
+  if (run.status === 'idle') {
+    const local = new Date(now);
+    seconds = local.getHours() * 3600 + local.getMinutes() * 60 + local.getSeconds() + local.getMilliseconds() / 1000;
+  }
   return {
     sweep,
-    focusAngle: HAND_REST_ANGLE - sweep,
-    secondsAngle: SECONDS_REST_ANGLE - (TAU * elapsedMs) / 60000
+    focusAngle: TWELVE_OCLOCK - TAU * (run.status === 'idle' ? seconds % 3600 : seconds) / 3600,
+    secondsAngle: TWELVE_OCLOCK - TAU * (run.status === 'idle' ? seconds % 60 : seconds) / 60,
+    hourAngle: TWELVE_OCLOCK - TAU * (seconds % 43200) / 43200,
+    mechanismSeconds: seconds
   };
 }
 
@@ -69,7 +75,7 @@ function makeProgressArc() {
       const span = Math.min(TAU, sweep);
       const steps = Math.max(1, Math.ceil((span * maxSegments) / TAU));
       for (let i = 0; i <= steps; i += 1) {
-        const theta = HAND_REST_ANGLE - span * (i / steps);
+        const theta = TWELVE_OCLOCK - span * (i / steps);
         position.setXYZ(i * 2, Math.cos(theta) * 2.661, 0.026, -Math.sin(theta) * 2.661);
         position.setXYZ(i * 2 + 1, Math.cos(theta) * 2.705, 0.026, -Math.sin(theta) * 2.705);
       }
@@ -88,6 +94,10 @@ export function createDial(canvas, options = {}) {
   let clock = null;
   let focusHand = null;
   let secondsHand = null;
+  let hourHand = null;
+  let mechanism = null;
+  let mechanismPeriod = 0;
+  let sampledPhase = NaN;
   let civilizationMount = null;
   let civilizations = null;
   let desiredScene = 'stone';
@@ -100,7 +110,7 @@ export function createDial(canvas, options = {}) {
   let lastFrame = 0;
   let vw = window.innerWidth;
   let vh = window.innerHeight;
-  let insets = { top: 0, nearTop: 0, bottom: 0 };
+  let insets = { top: 0, nearTop: 0, bottom: 0, nearBottom: 0 };
   let far = null;
   let nearFit = null;
   let layoutVersion = 0;
@@ -110,6 +120,10 @@ export function createDial(canvas, options = {}) {
   let settle = null;
   let pointer = null;
   let drawn = {};
+  const inspection = createSettlementInspection(canvas, () => supported && active && near && progress === 1, () => {
+    drawn = {};
+    draw();
+  });
 
   const probe = new THREE.PerspectiveCamera(FOV, 1, 0.05, 75);
   const farPos = new THREE.Vector3();
@@ -195,9 +209,9 @@ export function createDial(canvas, options = {}) {
         probe.position.copy(NEAR_OFFSET).multiplyScalar(s).add(NEAR_ANCHOR);
         probe.lookAt(NEAR_ANCHOR);
       },
-      HAND_POINTS,
-      areaOf(nearPad, insets.nearTop, vw - nearPad, bottom),
-      1,
+      SETTLEMENT_POINTS,
+      areaOf(nearPad, insets.nearTop, vw - nearPad, vh - insets.nearBottom),
+      0.68,
       8
     );
     farPos.copy(HOME_DIR).multiplyScalar(far.s).add(HOME_TARGET);
@@ -230,6 +244,11 @@ export function createDial(canvas, options = {}) {
     canvas.hidden = true;
     civilizations?.dispose();
     civilizations = null;
+    if (mechanism) {
+      mechanism.stopAllAction();
+      mechanism.uncacheRoot(clock);
+      mechanism = null;
+    }
     renderer?.dispose();
     environment?.dispose();
     scene?.traverse((node) => {
@@ -259,21 +278,28 @@ export function createDial(canvas, options = {}) {
     renderer.setClearColor(0x000000, 0);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.13;
+    renderer.toneMappingExposure = 0.99;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
 
     scene = new THREE.Scene();
     const envScene = new RoomEnvironment();
     const pmrem = new THREE.PMREMGenerator(renderer);
     environment = pmrem.fromScene(envScene, 0.045);
     scene.environment = environment.texture;
-    scene.environmentIntensity = 0.65;
+    scene.environmentIntensity = 0.50;
     envScene.dispose();
     pmrem.dispose();
 
-    const key = new THREE.DirectionalLight('#ffdbac', 2.65);
-    const fill = new THREE.DirectionalLight('#8ebcff', 1.8);
-    const bounce = new THREE.DirectionalLight('#ffd5a0', 0.76);
-    key.position.set(-4, 9, 3);
+    const key = new THREE.DirectionalLight('#ffdfb5', 2.28);
+    const fill = new THREE.DirectionalLight('#9ec6f1', 1.03);
+    const bounce = new THREE.DirectionalLight('#ffd5a0', 0.38);
+    key.position.set(-4, 6, 3);
+    key.castShadow = true;
+    key.shadow.mapSize.set(1024, 1024);
+    Object.assign(key.shadow.camera, {left:-3, right:3, top:3, bottom:-3, near:3, far:13});
+    key.shadow.camera.updateProjectionMatrix();
+    key.shadow.normalBias = 0.002;
     fill.position.set(4, 3, -5);
     bounce.position.set(2, 1.5, 7);
     scene.add(key, fill, bounce, new THREE.HemisphereLight('#c4daf8', '#51412e', 0.55));
@@ -299,13 +325,20 @@ export function createDial(canvas, options = {}) {
     const root = asset.scene.getObjectByName('TerraTockClock');
     const hand = root?.getObjectByName('FocusHandPivot');
     const seconds = root?.getObjectByName('SecondsHandPivot');
-    if (!hand || !seconds || !root.getObjectByName('CivilizationMount')) throw new Error('Incomplete clock model');
+    const hour = root?.getObjectByName('HourHandPivot');
+    const movement = asset.animations.find((clip) => clip.name === 'Clockwork');
+    if (!hand || !seconds || !hour || !movement || !root.getObjectByName('CivilizationMount')) throw new Error('Incomplete clock model');
     arc = makeProgressArc();
     root.add(arc.mesh);
     scene.add(root);
+    root.traverse(node => { if (node.isMesh) node.receiveShadow = true; });
     clock = root;
     focusHand = hand;
     secondsHand = seconds;
+    hourHand = hour;
+    mechanism = new THREE.AnimationMixer(root);
+    mechanism.clipAction(movement).play();
+    mechanismPeriod = movement.duration;
     civilizationMount = root.getObjectByName('CivilizationMount');
     civilizations = createCivilizations(civilizationMount, {
       reducedMotion: reduced,
@@ -334,14 +367,24 @@ export function createDial(canvas, options = {}) {
     if (
       drawn.focus === pose.focusAngle &&
       drawn.seconds === pose.secondsAngle &&
+      drawn.hour === pose.hourAngle &&
+      drawn.sweep === pose.sweep &&
       drawn.mode === run.mode &&
       drawn.progress === progress &&
       drawn.layout === layoutVersion
     ) return;
-    drawn = { focus: pose.focusAngle, seconds: pose.secondsAngle, mode: run.mode, progress, layout: layoutVersion };
+    drawn = { focus: pose.focusAngle, seconds: pose.secondsAngle, hour: pose.hourAngle, sweep: pose.sweep, mode: run.mode, progress, layout: layoutVersion };
 
-    focusHand.rotation.y = pose.focusAngle;
-    secondsHand.rotation.y = pose.secondsAngle;
+    // An imported quaternion can decompose into nonzero X and Z Euler angles.
+    // Each hand has exactly one physical axis, independent of its exported pose.
+    focusHand.rotation.set(0, pose.focusAngle, 0);
+    secondsHand.rotation.set(0, pose.secondsAngle, 0);
+    hourHand.rotation.set(0, pose.hourAngle, 0);
+    const phase = reduced ? 0 : pose.mechanismSeconds % mechanismPeriod;
+    if (phase !== sampledPhase) {
+      mechanism.setTime(phase);
+      sampledPhase = phase;
+    }
     arc.update(pose.sweep, run.mode);
     clock.updateMatrixWorld(true);
 
@@ -352,7 +395,14 @@ export function createDial(canvas, options = {}) {
     camera.position.copy(farPos).lerp(nearPos, eased);
     target.copy(HOME_TARGET).lerp(nearTarget, eased);
     camera.lookAt(target);
-    camera.setViewOffset(vw, vh, mix(far.offX, nearFit.offX, eased), mix(far.offY, nearFit.offY, eased), vw, vh);
+    // Zoom around the inhabited part of the free viewport, below the location picker.
+    const detail = inspection.zoom - 1;
+    const aimX = (nearFit.l + nearFit.r)/2 + inspection.pan*(nearFit.r-nearFit.l)/2;
+    const aimY = mix(nearFit.t, nearFit.b, .57);
+    camera.zoom = 1 + detail*eased;
+    const detailX = nearFit.offX + detail*(nearFit.offX+aimX-vw/2);
+    const detailY = nearFit.offY + detail*(nearFit.offY+aimY-vh/2);
+    camera.setViewOffset(vw, vh, mix(far.offX, detailX, eased), mix(far.offY, detailY, eased), vw, vh);
     renderer.render(scene, camera);
 
     const sweep = (pose.sweep * DEG).toFixed(2);
@@ -406,8 +456,9 @@ export function createDial(canvas, options = {}) {
     const top = Math.max(0, Math.round(next.top));
     const nearTop = Math.max(0, Math.round(next.nearTop));
     const bottom = Math.max(0, Math.round(next.bottom));
-    if (top === insets.top && nearTop === insets.nearTop && bottom === insets.bottom) return;
-    insets = { top, nearTop, bottom };
+    const nearBottom = Math.max(0, Math.round(next.nearBottom));
+    if (top === insets.top && nearTop === insets.nearTop && bottom === insets.bottom && nearBottom === insets.nearBottom) return;
+    insets = { top, nearTop, bottom, nearBottom };
     computeLayout();
     draw();
   }
@@ -499,6 +550,7 @@ export function createDial(canvas, options = {}) {
     getCivilizationMount: () => civilizationMount,
     setNear(next) {
       near = Boolean(next);
+      if (!near) inspection.reset();
     },
     // 进入文明场景前把镜头推到指针近景并保持，离开场景后由 surface 交还给用户选定的视角。
     dive(cb) {

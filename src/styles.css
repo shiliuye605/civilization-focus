@@ -326,6 +326,9 @@ body[data-theme="information"] {
 #dial-canvas:focus-visible {
   filter: drop-shadow(0 0 26px rgba(255, 210, 154, 0.16));
 }
+body[data-dial="near"] #dial-canvas {
+  touch-action: none;
+}
 
 .dial-fallback {
   position: absolute;

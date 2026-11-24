@@ -93,9 +93,14 @@ async function probe(page) {
     const remaining = run.status === 'running' ? Math.max(0, run.deadline - Date.now()) : run.status === 'paused' ? run.remainingMs : run.status === 'done' ? 0 : run.durationMs;
     return {
       angle: d.focusHand.rotation.y, seconds: d.secondsHand.rotation.y,
+      secondsHeading: p.clone().set(1, 0, 0).applyQuaternion(d.secondsHand.quaternion).toArray(),
+      hour: d.clock.getObjectByName('HourHandPivot').rotation.y,
+      wheel: d.clock.getObjectByName('BarrelWheel').quaternion.toArray(),
+      pinion: d.clock.getObjectByName('TransferWheel').quaternion.toArray(),
+      balance: d.clock.getObjectByName('BalanceWheel').quaternion.toArray(),
       relative, target, up: d.camera.up.toArray(), pivot, tip, mark,
       mountChildren: d.civilizationMount.children.length, mountParent: d.civilizationMount.parent.name,
-      full: bounds(d.clock), hand: bounds(d.focusHand),
+      full: bounds(d.clock), settlement: bounds(d.civilizationMount),
       run, remaining, count: document.querySelector('#dial-count').textContent,
       width: innerWidth, height: innerHeight, logoLoaded: document.querySelector('#home-logo').naturalWidth > 0,
       logoBottom: logo.bottom, barBottom: bar.bottom, captionTop: caption.top, dockTop: dock.top,
@@ -110,8 +115,9 @@ function fits(box, width, height) {
 }
 function poseMatches(s) {
   const elapsed = Math.min(s.run.durationMs, Math.max(0, s.run.durationMs - s.remaining));
-  return equal(s.angle, Math.PI / 6 - Math.PI / 30 * elapsed / 60000)
-    && equal(s.seconds, 2.14 - Math.PI * 2 * elapsed / 60000);
+  return equal(s.angle, Math.PI / 2 - Math.PI / 30 * elapsed / 60000)
+    && equal(s.seconds, Math.PI / 2 - Math.PI * 2 * elapsed / 60000)
+    && equal(s.hour, Math.PI / 2 - Math.PI * 2 * (elapsed % 43200000) / 43200000);
 }
 
 const browser = await chromium.launch({ executablePath: CHROME, headless: true });
@@ -122,6 +128,15 @@ try {
     let s = await probe(page);
     check(`${label} 全景完整、logo、控件不遮挡且无滚动`, fits(s.full, width, height) && s.full.t > s.barBottom && s.full.b < s.captionTop - 15 && s.logoLoaded && s.controlsFit && s.noScroll);
     check(`${label} 默认25/5且文明挂在指针台面`, s.run.durationMs === 1500000 && (await state(page)).settings.breakMinutes === 5 && s.mountChildren === 1 && s.mountParent === 'FocusHandPivot');
+    await advance(page, 3250);
+    const idle = await probe(page);
+    const localSecond = await page.evaluate(() => {
+      const now = new Date(Date.now());
+      return now.getSeconds() + now.getMilliseconds() / 1000;
+    });
+    const yaw = Math.PI / 2 - localSecond * Math.PI / 30;
+    check(`${label} 待机秒针实体在正确的刻度方向`, sameVector(idle.secondsHeading, [Math.cos(yaw), 0, -Math.sin(yaw)]));
+    check(`${label} 待机时三针、传动齿轮和摆轮一起走动`, idle.angle !== s.angle && idle.hour !== s.hour && idle.seconds !== s.seconds && !sameVector(idle.wheel, s.wheel) && !sameVector(idle.pinion, s.pinion) && !sameVector(idle.balance, s.balance));
     if (label !== 'small-phone') await page.screenshot({ path: path.join(SHOTS, `clock-${label}-panorama.png`) });
     await page.mouse.click(8, Math.min(height - 150, 230));
     check(`${label} 空白点击不拉近`, await page.getAttribute('body', 'data-dial') === 'far');
@@ -133,8 +148,8 @@ try {
     await view(page, true);
     check(`${label} 点击钟面只变视角不开始`, (await state(page)).run.status === 'idle' && await page.getAttribute('body', 'data-view') === 'home');
     s = await probe(page);
-    check(`${label} 近景轴心在左针尖在右并完整可见`, fits(s.hand, width, height) && s.pivot[0] < s.tip[0] && s.hand.t > s.barBottom && s.hand.b < s.dockTop);
-    check(`${label} 低位侧视、目标与镜头绑定且世界向上`, sameVector(s.target, [1.57, 0.25, 0]) && sameVector(s.up, [0, 1, 0]) && s.relative[1] > 0.3 && (s.relative[1] - 0.25) / (s.relative[2]) < 0.4);
+    check(`${label} 聚落放大、完整入镜且指针朝右`, fits(s.settlement, width, height) && s.pivot[0] < s.tip[0] && s.settlement.r - s.settlement.l > width * .61 && s.settlement.t > s.barBottom && s.settlement.b < s.dockTop);
+    check(`${label} 低位侧视、目标与镜头绑定且世界向上`, sameVector(s.target, [1.67, 0.43, 0]) && sameVector(s.up, [0, 1, 0]) && s.relative[1] > 0.43 && (s.relative[1] - 0.43) / (s.relative[2]) < 0.4);
     await page.click('#home-start');
     const rid = (await state(page)).run.roundId;
     check(`${label} 开始25分钟仍留在时钟近景`, (await state(page)).run.status === 'running' && await page.getAttribute('body', 'data-view') === 'home');
@@ -148,7 +163,7 @@ try {
       const before = await probe(page);
       await advance(page, minutes * 60000);
       const after = await probe(page);
-      check(`${label} 转动${Math.round((Math.PI / 6 - after.angle) * 180 / Math.PI)}度跟随不翻转、刻度掠过`, sameVector(first.relative, after.relative) && sameVector(first.target, after.target) && after.pivot[0] < after.tip[0] && fits(after.hand, width, height) && Math.hypot(after.mark[0] - before.mark[0], after.mark[1] - before.mark[1]) > 2);
+      check(`${label} 转动${Math.round((Math.PI / 2 - after.angle) * 180 / Math.PI)}度跟随不翻转、刻度掠过`, sameVector(first.relative, after.relative) && sameVector(first.target, after.target) && after.pivot[0] < after.tip[0] && fits(after.settlement, width, height) && Math.hypot(after.mark[0] - before.mark[0], after.mark[1] - before.mark[1]) > 2);
     }
     if (label !== 'small-phone') await page.screenshot({ path: path.join(SHOTS, `clock-${label}-follow.png`) });
     await page.click('#home-pause');
@@ -156,6 +171,7 @@ try {
     await advance(page, 12750);
     s = await probe(page);
     check(`${label} 暂停指针读数均不动`, equal(paused.angle, s.angle) && equal(paused.seconds, s.seconds) && paused.count === s.count && s.run.status === 'paused');
+    check(`${label} 暂停同时锁住小时盘、齿轮和摆轮`, equal(paused.hour, s.hour) && sameVector(paused.wheel, s.wheel) && sameVector(paused.balance, s.balance));
     await page.reload();
     await page.waitForSelector('#dial-canvas[data-ready="true"]');
     s = await probe(page);
@@ -204,10 +220,27 @@ try {
     await page.keyboard.press('Enter');
     await view(page, true);
     check('减少动态键盘直接切近景且不开始', (await state(page)).run.status === 'idle');
+    await page.mouse.move(720, 520);
+    await page.mouse.wheel(0, -390);
+    await page.waitForFunction(() => window.__dialTest.camera.zoom > 1.8);
+    const offset = () => page.evaluate(() => window.__dialTest.camera.view.offsetX);
+    const centre = await offset();
+    await page.mouse.down();
+    await page.mouse.move(605, 520, { steps: 5 });
+    await page.mouse.up();
+    check('滚轮放大后拖动能沿聚落取景', (await offset()) > centre + 50);
+    await page.focus('#dial-canvas');
+    await page.keyboard.press('ArrowLeft');
+    check('方向键能移回相邻街区', (await offset()) < centre + 90);
+    await view(page, false);
+    await view(page, true);
+    check('再次近看恢复整个聚落且没有启动计时', (await page.evaluate(() => window.__dialTest.camera.zoom)) === 1 && (await state(page)).run.status === 'idle');
+    const quiet = await probe(page);
     await page.click('#home-start');
     await advance(page, 7500);
     const s = await probe(page);
     check('减少动态仍精确共享实际已用时', poseMatches(s) && s.count === '24:53');
+    check('减少动态保留计时且停止装饰机芯', sameVector(quiet.wheel, s.wheel) && sameVector(quiet.balance, s.balance));
     await page.click('#home-pause');
     await advance(page, 1111);
     await page.click('#home-pause');
@@ -290,7 +323,7 @@ try {
     await page.waitForFunction((angle) => window.__dialTest.secondsHand.rotation.y < angle - 0.15, freezeStart.seconds);
     const awake = await probe(page);
     const elapsed = awake.run.durationMs - awake.remaining;
-    check('浏览器实际冻结再激活后按deadline校准两针', equal(awake.angle, Math.PI / 6 - Math.PI / 30 * elapsed / 60000, 0.001) && equal(awake.seconds, 2.14 - Math.PI * 2 * elapsed / 60000, 0.03));
+    check('浏览器实际冻结再激活后按deadline校准两针', equal(awake.angle, Math.PI / 2 - Math.PI / 30 * elapsed / 60000, 0.001) && equal(awake.seconds, Math.PI / 2 - Math.PI * 2 * elapsed / 60000, 0.03));
     await page.close();
   }
 } finally {

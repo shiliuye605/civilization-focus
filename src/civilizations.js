@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { SCENES } from './scene-catalog.mjs';
 import { createCivilizationLife, nextLifePhase } from './civilization-life.mjs';
 import { createEraTurn } from './era-turn.mjs';
+import { addSettlementDistricts } from './settlement-districts.js';
 
 const MODEL_URLS = import.meta.glob('./assets/models/*.glb', { query: '?url', import: 'default', eager: true });
 
@@ -105,6 +106,13 @@ export function createCivilizations(mount, { reducedMotion = false, onState = ()
       asset.root.userData.sceneId = job.id;
       asset.mixer = new THREE.AnimationMixer(asset.root);
       for (const clip of gltf.animations) asset.mixer.clipAction(clip).play();
+      addSettlementDistricts(asset.root.children[0], job.id, asset.mixer);
+      asset.root.traverse(node => {
+        if (node.isMesh) {
+          node.receiveShadow = true;
+          node.castShadow = !node.material?.transparent;
+        }
+      });
       asset.mixer.setTime(0);
       asset.life = createCivilizationLife(asset.root, job.id);
       asset.life.seek(0);

@@ -50,9 +50,9 @@ export function createEraTurn(mount) {
   holder.visible=false;
   mount.add(holder);
   const leaves=[
-    leaf(holder,-1.076,-.435,0),
-    leaf(holder,-.445,.158,1),
-    leaf(holder,.148,.797,2),
+    leaf(holder,-1.15,-.47,0),
+    leaf(holder,-.48,.19,1),
+    leaf(holder,.18,.87,2),
   ];
   let time=0;
   let run=null;
@@ -79,8 +79,8 @@ export function createEraTurn(mount) {
       for(let k=0;k<2;k++){
         const x=k?sheet.end:sheet.start;
         const lengthFraction=(x+1.13)/2.02;
-        const hinge=.271-lengthFraction*.085;
-        const span=(.675-lengthFraction*.122)*widthGain;
+        const hinge=.49-lengthFraction*.19;
+        const span=(1.00-lengthFraction*.32)*widthGain;
         const bend=Math.sin(local*Math.PI);
         const angle=.08+ease(local)*2.93+u*.43*bend;
         const sag=(.003+u*.009)*Math.sin(bend*1.5);
